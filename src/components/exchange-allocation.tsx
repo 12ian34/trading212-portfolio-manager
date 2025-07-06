@@ -19,8 +19,7 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
-  Legend 
+  Tooltip 
 } from 'recharts'
 
 interface ExchangeData {
@@ -560,6 +559,18 @@ export function ExchangeAllocation() {
     return { score: 'Poor', color: 'text-red-600 dark:text-red-400' }
   }
 
+  // Chart colors
+  const CHART_COLORS = [
+    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6366f1'
+  ]
+
+  // Chart data
+  const chartData = (viewMode === 'exchanges' ? exchangeData : marketTypeData).map((item, index) => ({
+    ...item,
+    fill: CHART_COLORS[index % CHART_COLORS.length]
+  }))
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -626,7 +637,7 @@ export function ExchangeAllocation() {
           <AlertDescription>
             <strong>Demo Mode Active</strong>
             <br />
-            Showing example exchange allocation data. Click "Refresh" to try loading your real portfolio data.
+            Showing example exchange allocation data. Click &quot;Refresh&quot; to try loading your real portfolio data.
           </AlertDescription>
         </Alert>
       )}
@@ -768,41 +779,6 @@ export function ExchangeAllocation() {
         </Card>
       )}
 
-      {/* Chart colors and helpers */}
-      {(() => {
-        const CHART_COLORS = [
-          '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-          '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6366f1'
-        ]
-
-        const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
-          if (active && payload && payload.length) {
-            const data = payload[0]
-            return (
-              <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
-                <p className="font-medium">{label}</p>
-                <p className="text-sm">
-                  <span className="font-medium">Value: </span>
-                  {formatCurrency(data.value)}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Percentage: </span>
-                  {data.payload.percentage?.toFixed(1)}%
-                </p>
-              </div>
-            )
-          }
-          return null
-        }
-
-        const chartData = (viewMode === 'exchanges' ? exchangeData : marketTypeData).map((item, index) => ({
-          ...item,
-          fill: CHART_COLORS[index % CHART_COLORS.length]
-        }))
-
-        return null
-      })()}
-
       {/* Exchange/Market Type Breakdown with Charts */}
       {!isLoading && ((viewMode === 'exchanges' && exchangeData.length > 0) || (viewMode === 'markets' && marketTypeData.length > 0)) && (
         <Tabs defaultValue="table" className="w-full">
@@ -826,83 +802,136 @@ export function ExchangeAllocation() {
           <TabsContent value="table">
             <Card>
               <CardContent className="pt-6">
-            <div className="space-y-4">
-              {(viewMode === 'exchanges' ? exchangeData : marketTypeData).map((item, index) => (
-                <div key={viewMode === 'exchanges' ? (item as ExchangeData).exchange : (item as MarketTypeData).marketType} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full ${viewMode === 'exchanges' ? getExchangeColor((item as ExchangeData).exchange, index) : getMarketTypeColor((item as MarketTypeData).marketType)}`} />
-                      <div>
-                        <span className="font-medium">
-                          {viewMode === 'exchanges' ? (item as ExchangeData).exchange : (item as MarketTypeData).marketType}
-                        </span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {viewMode === 'exchanges' ? (item as ExchangeData).count : (item as MarketTypeData).count} position{(viewMode === 'exchanges' ? (item as ExchangeData).count : (item as MarketTypeData).count) > 1 ? 's' : ''}
-                          </Badge>
-                          {viewMode === 'exchanges' && (
-                            <>
-                              <Badge className={`text-xs ${getMarketTypeBadgeColor((item as ExchangeData).marketType)}`}>
-                                {(item as ExchangeData).marketType}
+                <div className="space-y-4">
+                  {(viewMode === 'exchanges' ? exchangeData : marketTypeData).map((item, index) => (
+                    <div key={viewMode === 'exchanges' ? (item as ExchangeData).exchange : (item as MarketTypeData).marketType} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full ${viewMode === 'exchanges' ? getExchangeColor((item as ExchangeData).exchange, index) : getMarketTypeColor((item as MarketTypeData).marketType)}`} />
+                          <div>
+                            <span className="font-medium">
+                              {viewMode === 'exchanges' ? (item as ExchangeData).exchange : (item as MarketTypeData).marketType}
+                            </span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {viewMode === 'exchanges' ? (item as ExchangeData).count : (item as MarketTypeData).count} position{(viewMode === 'exchanges' ? (item as ExchangeData).count : (item as MarketTypeData).count) > 1 ? 's' : ''}
                               </Badge>
-                              {(item as ExchangeData).avgPE && (
+                              {viewMode === 'exchanges' && (
+                                <>
+                                  <Badge className={`text-xs ${getMarketTypeBadgeColor((item as ExchangeData).marketType)}`}>
+                                    {(item as ExchangeData).marketType}
+                                  </Badge>
+                                  {(item as ExchangeData).avgPE && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Avg P/E: {(item as ExchangeData).avgPE!.toFixed(1)}
+                                    </Badge>
+                                  )}
+                                </>
+                              )}
+                              {viewMode === 'markets' && (
                                 <Badge variant="outline" className="text-xs">
-                                  Avg P/E: {(item as ExchangeData).avgPE!.toFixed(1)}
+                                  {(item as MarketTypeData).exchanges.length} exchange{(item as MarketTypeData).exchanges.length > 1 ? 's' : ''}
                                 </Badge>
                               )}
-                            </>
-                          )}
-                          {viewMode === 'markets' && (
-                            <Badge variant="outline" className="text-xs">
-                              {(item as MarketTypeData).exchanges.length} exchange{(item as MarketTypeData).exchanges.length > 1 ? 's' : ''}
-                            </Badge>
-                          )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">{formatCurrency(item.value)}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {item.percentage.toFixed(1)}%
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium">{formatCurrency(item.value)}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {item.percentage.toFixed(1)}%
+                      <Progress value={item.percentage} className="h-2" />
+                      <div className="text-xs text-muted-foreground">
+                        {viewMode === 'exchanges' ? (
+                          <>
+                            <div>
+                              <span className="font-medium">Country: </span>
+                              {(item as ExchangeData).country}
+                              <span className="ml-4 font-medium">Trading Hours: </span>
+                              {(item as ExchangeData).tradingHours}
+                            </div>
+                            <div>
+                              <span className="font-medium">Companies: </span>
+                              {(item as ExchangeData).companies.slice(0, 3).join(', ')}
+                              {(item as ExchangeData).companies.length > 3 && ` +${(item as ExchangeData).companies.length - 3} more`}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <span className="font-medium">Exchanges: </span>
+                              {(item as MarketTypeData).exchanges.slice(0, 3).join(', ')}
+                              {(item as MarketTypeData).exchanges.length > 3 && ` +${(item as MarketTypeData).exchanges.length - 3} more`}
+                            </div>
+                            <div>
+                              <span className="font-medium">Companies: </span>
+                              {(item as MarketTypeData).companies.slice(0, 3).join(', ')}
+                              {(item as MarketTypeData).companies.length > 3 && ` +${(item as MarketTypeData).companies.length - 3} more`}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
-                  </div>
-                  <Progress value={item.percentage} className="h-2" />
-                  <div className="text-xs text-muted-foreground">
-                    {viewMode === 'exchanges' ? (
-                      <>
-                        <div>
-                          <span className="font-medium">Country: </span>
-                          {(item as ExchangeData).country}
-                          <span className="ml-4 font-medium">Trading Hours: </span>
-                          {(item as ExchangeData).tradingHours}
-                        </div>
-                        <div>
-                          <span className="font-medium">Companies: </span>
-                          {(item as ExchangeData).companies.slice(0, 3).join(', ')}
-                          {(item as ExchangeData).companies.length > 3 && ` +${(item as ExchangeData).companies.length - 3} more`}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <span className="font-medium">Exchanges: </span>
-                          {(item as MarketTypeData).exchanges.slice(0, 3).join(', ')}
-                          {(item as MarketTypeData).exchanges.length > 3 && ` +${(item as MarketTypeData).exchanges.length - 3} more`}
-                        </div>
-                        <div>
-                          <span className="font-medium">Companies: </span>
-                          {(item as MarketTypeData).companies.slice(0, 3).join(', ')}
-                          {(item as MarketTypeData).companies.length > 3 && ` +${(item as MarketTypeData).companies.length - 3} more`}
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pie">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={chartData}
+                        cx={'50%'}
+                        cy={'50%'}
+                        labelLine={false}
+                        label={({ name, percentage }) => `${name} ${percentage.toFixed(1)}%`}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="bar">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey={viewMode === 'exchanges' ? 'exchange' : 'marketType'}
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                      />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#3b82f6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Empty State */}

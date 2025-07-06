@@ -465,9 +465,17 @@ export function GeographicAllocation() {
   ]
 
   // Custom tooltip for charts
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: unknown[]; label?: string }) => {
+  interface TooltipData {
+    value: number
+    payload: {
+      percentage: number
+      count?: number
+    }
+  }
+
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipData[]; label?: string }) => {
     if (active && payload && payload.length) {
-      const data = payload[0] as any
+      const data = payload[0]
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="font-medium">{label}</p>
@@ -568,7 +576,7 @@ export function GeographicAllocation() {
           <AlertDescription>
             <strong>Demo Mode Active</strong>
             <br />
-            Showing example geographic allocation data. Click "Refresh" to try loading your real portfolio data.
+            Showing example geographic allocation data. Click &quot;Refresh&quot; to try loading your real portfolio data.
           </AlertDescription>
         </Alert>
       )}
@@ -818,13 +826,13 @@ export function GeographicAllocation() {
                 </div>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2">
                   {(viewMode === 'regions' ? regionChartData : countryChartData).map((item) => (
-                    <div key={viewMode === 'regions' ? (item as any).region : (item as any).country} className="flex items-center gap-2 text-sm">
+                    <div key={viewMode === 'regions' ? (item as RegionData & { fill: string }).region : (item as GeographicData & { fill: string }).country} className="flex items-center gap-2 text-sm">
                       <div 
                         className="w-3 h-3 rounded-full" 
                         style={{ backgroundColor: item.fill }}
                       />
                       <span className="truncate">
-                        {viewMode === 'regions' ? (item as any).region : (item as any).country}
+                        {viewMode === 'regions' ? (item as RegionData & { fill: string }).region : (item as GeographicData & { fill: string }).country}
                       </span>
                       <span className="text-muted-foreground">({item.percentage.toFixed(1)}%)</span>
                     </div>

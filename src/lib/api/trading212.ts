@@ -155,7 +155,7 @@ class Trading212ApiClient {
         data: position,
         timestamp: new Date().toISOString(),
       }
-    } catch (_error) {
+    } catch {
       return {
         success: false,
         data: null,
@@ -191,7 +191,7 @@ class Trading212ApiClient {
         },
         timestamp: new Date().toISOString(),
       }
-    } catch (_error) {
+    } catch {
       return {
         success: false,
         data: null,

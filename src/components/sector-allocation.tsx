@@ -293,7 +293,7 @@ export function SectorAllocation() {
 
   useEffect(() => {
     fetchSectorData()
-  }, [])
+  }, [fetchSectorData])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -343,23 +343,32 @@ export function SectorAllocation() {
   ]
 
   // Custom tooltip for charts
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: unknown[]; label?: string }) => {
+  interface TooltipData {
+    value: number
+    payload: {
+      percentage: number
+      count?: number
+    }
+  }
+
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipData[]; label?: string }) => {
     if (active && payload && payload.length) {
+      const data = payload[0]
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="font-medium">{label}</p>
           <p className="text-sm">
             <span className="font-medium">Value: </span>
-            {formatCurrency(payload[0].value)}
+            {formatCurrency(data.value)}
           </p>
           <p className="text-sm">
             <span className="font-medium">Percentage: </span>
-            {payload[0].payload.percentage?.toFixed(1)}%
+            {data.payload.percentage?.toFixed(1)}%
           </p>
-          {payload[0].payload.count && (
+          {data.payload.count && (
             <p className="text-sm">
               <span className="font-medium">Positions: </span>
-              {payload[0].payload.count}
+              {data.payload.count}
             </p>
           )}
         </div>
@@ -434,7 +443,7 @@ export function SectorAllocation() {
           <AlertDescription>
             <strong>Demo Mode Active</strong>
             <br />
-            Showing example sector allocation data. Click "Refresh" to try loading your real portfolio data.
+            Showing example sector allocation data. Click &quot;Refresh&quot; to try loading your real portfolio data.
           </AlertDescription>
         </Alert>
       )}

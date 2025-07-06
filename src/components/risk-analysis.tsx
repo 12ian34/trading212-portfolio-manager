@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { RefreshCw, AlertTriangle, TrendingUp, Shield, Target, Clock, Zap, BarChart3, PieChart, Globe, Building } from 'lucide-react'
+import { RefreshCw, AlertTriangle, Shield, Zap, PieChart, Globe, Building } from 'lucide-react'
 import { trading212Cache } from '@/lib/trading212-cache'
 
 interface RiskMetrics {
@@ -619,7 +619,7 @@ export function RiskAnalysis() {
           <AlertDescription>
             <strong>Demo Mode Active</strong>
             <br />
-            Showing example risk analysis data. Click "Analyze Risk" to run analysis on your real portfolio data.
+            Showing example risk analysis data. Click &quot;Analyze Risk&quot; to run analysis on your real portfolio data.
           </AlertDescription>
         </Alert>
       )}
@@ -834,7 +834,7 @@ export function RiskAnalysis() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {riskMetrics.recommendations.map((rec, index) => (
+                  {riskMetrics.recommendations.map((rec) => (
                     <div key={rec.id} className="p-4 border rounded-lg">
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-medium">{rec.title}</h4>

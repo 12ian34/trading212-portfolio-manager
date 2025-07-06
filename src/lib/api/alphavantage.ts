@@ -8,7 +8,7 @@ import {
 
 // Rate limiting queue for Alpha Vantage API
 class RateLimitQueue {
-  private queue: Array<() => Promise<any>> = []
+  private queue: Array<() => Promise<unknown>> = []
   private processing = false
   private lastCallTime = 0
   private readonly minInterval = 12000 // 12 seconds between calls (5 calls per minute)
@@ -61,7 +61,7 @@ class RateLimitQueue {
 class AlphaVantageApiClient {
   private client: AxiosInstance
   private rateLimitQueue: RateLimitQueue
-  private cache: Map<string, { data: any; timestamp: number }> = new Map()
+  private cache: Map<string, { data: unknown; timestamp: number }> = new Map()
   private readonly cacheTimeout = 24 * 60 * 60 * 1000 // 24 hours
 
   constructor() {
@@ -100,7 +100,7 @@ class AlphaVantageApiClient {
     )
   }
 
-  private handleError(error: AxiosError): ApiResponse<any> {
+  private handleError<T>(error: AxiosError): ApiResponse<T> {
     const timestamp = new Date().toISOString()
     
     if (error.response?.status === 429) {
@@ -152,10 +152,10 @@ class AlphaVantageApiClient {
       return null
     }
     
-    return cached.data
+    return cached.data as T
   }
 
-  private setCache(key: string, data: any): void {
+  private setCache(key: string, data: unknown): void {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -263,7 +263,7 @@ class AlphaVantageApiClient {
         data: results,
         timestamp: new Date().toISOString(),
       }
-    } catch (error) {
+    } catch {
       return {
         success: false,
         data: null,
