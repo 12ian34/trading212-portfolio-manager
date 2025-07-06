@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { RefreshCw, AlertTriangle, TrendingUp, PieChart, BarChart3, Building2, Target, Clock, Zap } from 'lucide-react'
+import { RefreshCw, AlertTriangle, TrendingUp, MapPin, Globe, Building2, Target, Clock, Zap } from 'lucide-react'
 import { trading212Cache } from '@/lib/trading212-cache'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   PieChart as RechartsPieChart, 
   Pie, 
@@ -23,12 +23,22 @@ import {
   Legend 
 } from 'recharts'
 
-interface SectorData {
-  sector: string
+interface GeographicData {
+  country: string
+  region: string
   value: number
   percentage: number
   count: number
   avgPE?: number
+  companies: string[]
+}
+
+interface RegionData {
+  region: string
+  value: number
+  percentage: number
+  count: number
+  countries: string[]
   companies: string[]
 }
 
@@ -43,6 +53,7 @@ interface EnrichedPosition {
   currentPrice: number
   quantity: number
   sector?: string
+  country?: string
   companyName?: string
   peRatio?: number
   isCached?: boolean
@@ -68,8 +79,9 @@ interface EnrichmentResponse {
   }
 }
 
-export function SectorAllocation() {
-  const [sectorData, setSectorData] = useState<SectorData[]>([])
+export function GeographicAllocation() {
+  const [geographicData, setGeographicData] = useState<GeographicData[]>([])
+  const [regionData, setRegionData] = useState<RegionData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [totalValue, setTotalValue] = useState(0)
@@ -77,24 +89,61 @@ export function SectorAllocation() {
   const [herfindahlIndex, setHerfindahlIndex] = useState(0)
   const [enrichmentStats, setEnrichmentStats] = useState<EnrichmentResponse['summary'] | null>(null)
   const [showMockData, setShowMockData] = useState(false)
+  const [viewMode, setViewMode] = useState<'countries' | 'regions'>('regions')
 
-  const fetchSectorData = async () => {
+  // Map countries to regions
+  const getRegion = (country: string): string => {
+    const regionMapping: { [key: string]: string } = {
+      'United States': 'North America',
+      'Canada': 'North America',
+      'Mexico': 'North America',
+      'United Kingdom': 'Europe',
+      'Germany': 'Europe',
+      'France': 'Europe',
+      'Netherlands': 'Europe',
+      'Sweden': 'Europe',
+      'Switzerland': 'Europe',
+      'Italy': 'Europe',
+      'Spain': 'Europe',
+      'Ireland': 'Europe',
+      'Denmark': 'Europe',
+      'Norway': 'Europe',
+      'China': 'Asia-Pacific',
+      'Japan': 'Asia-Pacific',
+      'South Korea': 'Asia-Pacific',
+      'Taiwan': 'Asia-Pacific',
+      'Hong Kong': 'Asia-Pacific',
+      'Singapore': 'Asia-Pacific',
+      'Australia': 'Asia-Pacific',
+      'India': 'Asia-Pacific',
+      'Israel': 'Middle East',
+      'Brazil': 'Latin America',
+      'Argentina': 'Latin America',
+      'Chile': 'Latin America',
+      'South Africa': 'Africa',
+      'Unknown': 'Other'
+    }
+    return regionMapping[country] || 'Other'
+  }
+
+  const fetchGeographicData = async () => {
     setIsLoading(true)
     setError(null)
     setShowMockData(false)
     
     try {
-      console.log('📊 Fetching Trading212 positions for sector analysis...')
+      console.log('🌍 Fetching Trading212 positions for geographic analysis...')
       const positions = await trading212Cache.getPositions()
       
       if (positions.length === 0) {
-        setSectorData([])
+        setGeographicData([])
+        setRegionData([])
         setTotalValue(0)
         setEnrichmentStats(null)
         return
       }
 
-      console.log('🔍 Enriching positions with sector data (Tiingo smart cache)...')
+      console.log('🔍 Enriching positions with geographic data (Tiingo smart cache)...')
       const enrichResponse = await fetch('/api/tiingo/enrich-positions', {
         method: 'POST',
         headers: {
@@ -112,25 +161,34 @@ export function SectorAllocation() {
 
       setEnrichmentStats(enrichmentData.summary)
 
-      // Calculate sector allocation
-      const sectorMap = new Map<string, {
+      // Calculate geographic allocation
+      const countryMap = new Map<string, {
         value: number
         count: number
         companies: string[]
         peRatios: number[]
       }>()
 
+      const regionMap = new Map<string, {
+        value: number
+        count: number
+        countries: Set<string>
+        companies: string[]
+      }>()
+
       let total = 0
       
       enrichedPos.forEach((position: EnrichedPosition) => {
         const value = position.currentPrice * position.quantity
-        const sector = position.sector || 'Unknown'
+        const country = position.country || 'Unknown'
+        const region = getRegion(country)
         const company = position.companyName || position.ticker.split('_')[0]
         
         total += value
         
-        if (!sectorMap.has(sector)) {
-          sectorMap.set(sector, {
+        // Country-level data
+        if (!countryMap.has(country)) {
+          countryMap.set(country, {
             value: 0,
             count: 0,
             companies: [],
@@ -138,22 +196,39 @@ export function SectorAllocation() {
           })
         }
         
-        const sectorInfo = sectorMap.get(sector)!
-        sectorInfo.value += value
-        sectorInfo.count += 1
-        sectorInfo.companies.push(company)
+        const countryInfo = countryMap.get(country)!
+        countryInfo.value += value
+        countryInfo.count += 1
+        countryInfo.companies.push(company)
         
         if (position.peRatio && position.peRatio > 0) {
-          sectorInfo.peRatios.push(position.peRatio)
+          countryInfo.peRatios.push(position.peRatio)
         }
+
+        // Region-level data
+        if (!regionMap.has(region)) {
+          regionMap.set(region, {
+            value: 0,
+            count: 0,
+            countries: new Set(),
+            companies: []
+          })
+        }
+        
+        const regionInfo = regionMap.get(region)!
+        regionInfo.value += value
+        regionInfo.count += 1
+        regionInfo.countries.add(country)
+        regionInfo.companies.push(company)
       })
 
       setTotalValue(total)
 
-      // Convert to array and calculate percentages
-      const sectors: SectorData[] = Array.from(sectorMap.entries())
-        .map(([sector, info]) => ({
-          sector,
+      // Convert to arrays and calculate percentages
+      const countries: GeographicData[] = Array.from(countryMap.entries())
+        .map(([country, info]) => ({
+          country,
+          region: getRegion(country),
           value: info.value,
           percentage: total > 0 ? (info.value / total) * 100 : 0,
           count: info.count,
@@ -164,175 +239,222 @@ export function SectorAllocation() {
         }))
         .sort((a, b) => b.value - a.value)
 
-      setSectorData(sectors)
+      const regions: RegionData[] = Array.from(regionMap.entries())
+        .map(([region, info]) => ({
+          region,
+          value: info.value,
+          percentage: total > 0 ? (info.value / total) * 100 : 0,
+          count: info.count,
+          countries: Array.from(info.countries),
+          companies: info.companies
+        }))
+        .sort((a, b) => b.value - a.value)
 
-      // Calculate concentration metrics
-      const hhi = sectors.reduce((sum, sector) => sum + Math.pow(sector.percentage, 2), 0)
+      setGeographicData(countries)
+      setRegionData(regions)
+
+      // Calculate concentration metrics (using regions for HHI)
+      const hhi = regions.reduce((sum, region) => sum + Math.pow(region.percentage, 2), 0)
       setHerfindahlIndex(hhi)
 
       // Generate concentration alerts
-      const alerts = generateConcentrationAlerts(sectors, hhi)
+      const alerts = generateConcentrationAlerts(regions, hhi)
       setConcentrationAlerts(alerts)
 
-      console.log(`✅ Sector analysis complete: ${sectors.length} sectors, HHI: ${hhi.toFixed(1)}`)
+      console.log(`✅ Geographic analysis complete: ${countries.length} countries, ${regions.length} regions, HHI: ${hhi.toFixed(1)}`)
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch sector data')
-      console.error('❌ Error fetching sector data:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch geographic data')
+      console.error('❌ Error fetching geographic data:', err)
     } finally {
       setIsLoading(false)
     }
   }
 
   const loadMockData = () => {
-    // Generate mock sector data for demonstration when hitting rate limits
-    const mockSectors: SectorData[] = [
+    const mockRegions: RegionData[] = [
       {
-        sector: 'Technology',
-        value: 4200,
-        percentage: 42.0,
-        count: 8,
-        avgPE: 28.5,
-        companies: ['AAPL', 'GOOG', 'AMD', 'TSM', 'DOCU', 'WIX', 'FB', 'ABNB']
+        region: 'North America',
+        value: 7000,
+        percentage: 70.0,
+        count: 12,
+        countries: ['United States', 'Canada'],
+        companies: ['AAPL', 'GOOG', 'MSFT', 'TSLA', 'AMD', 'NVDA', 'META', 'NFLX', 'COIN', 'PLTR', 'V', 'IBM']
       },
       {
-        sector: 'Healthcare',
-        value: 2000,
-        percentage: 20.0,
-        count: 3,
-        avgPE: 22.1,
-        companies: ['IDXX', 'Unknown', 'Unknown']
-      },
-      {
-        sector: 'Consumer Cyclical',
+        region: 'Europe',
         value: 1500,
         percentage: 15.0,
         count: 4,
-        avgPE: 18.7,
-        companies: ['SHOP', 'TTD', 'BABA', 'Unknown']
+        countries: ['Netherlands', 'United Kingdom', 'Germany'],
+        companies: ['ASML', 'Unknown', 'Unknown', 'Unknown']
       },
       {
-        sector: 'Industrials',
-        value: 1300,
-        percentage: 13.0,
+        region: 'Asia-Pacific',
+        value: 1200,
+        percentage: 12.0,
         count: 3,
-        avgPE: 15.2,
-        companies: ['NOC', 'UTX', 'Unknown']
+        countries: ['Taiwan', 'China', 'Japan'],
+        companies: ['TSM', 'TCEHY', 'Unknown']
       },
       {
-        sector: 'Communication Services',
-        value: 700,
-        percentage: 7.0,
-        count: 2,
-        avgPE: 25.8,
-        companies: ['TCEHY', 'Unknown']
-      },
-      {
-        sector: 'Unknown',
+        region: 'Other',
         value: 300,
         percentage: 3.0,
-        count: 5,
-        companies: ['FEVRl', 'AAFl', 'BRBYl', 'MONYl', 'ASMLa']
+        count: 2,
+        countries: ['Unknown'],
+        companies: ['Unknown', 'Unknown']
       }
     ]
 
-    setSectorData(mockSectors)
+    const mockCountries: GeographicData[] = [
+      {
+        country: 'United States',
+        region: 'North America',
+        value: 6500,
+        percentage: 65.0,
+        count: 10,
+        avgPE: 26.3,
+        companies: ['AAPL', 'GOOG', 'MSFT', 'TSLA', 'AMD', 'NVDA', 'META', 'NFLX', 'COIN', 'PLTR']
+      },
+      {
+        country: 'Taiwan',
+        region: 'Asia-Pacific',
+        value: 800,
+        percentage: 8.0,
+        count: 1,
+        avgPE: 15.2,
+        companies: ['TSM']
+      },
+      {
+        country: 'Canada',
+        region: 'North America',
+        value: 500,
+        percentage: 5.0,
+        count: 2,
+        avgPE: 22.1,
+        companies: ['Unknown', 'Unknown']
+      },
+      {
+        country: 'Netherlands',
+        region: 'Europe',
+        value: 800,
+        percentage: 8.0,
+        count: 1,
+        avgPE: 31.5,
+        companies: ['ASML']
+      }
+    ]
+
+    setRegionData(mockRegions)
+    setGeographicData(mockCountries)
     setTotalValue(10000)
-    
-    // Calculate HHI for mock data
-    const hhi = mockSectors.reduce((sum, sector) => sum + Math.pow(sector.percentage, 2), 0)
-    setHerfindahlIndex(hhi)
-    
-    // Generate alerts for mock data
-    const alerts = generateConcentrationAlerts(mockSectors, hhi)
-    setConcentrationAlerts(alerts)
-    
     setShowMockData(true)
-    setError(null)
-    
-    console.log('📊 Loaded mock sector data for demonstration')
+    setHerfindahlIndex(5200) // High concentration
+    setConcentrationAlerts([
+      {
+        level: 'high',
+        message: 'High Geographic Concentration Risk',
+        recommendation: 'Consider diversifying beyond North America (70% allocation). Target allocation below 60% for any single region.'
+      }
+    ])
   }
 
-  const generateConcentrationAlerts = (sectors: SectorData[], hhi: number): ConcentrationAlert[] => {
+  const generateConcentrationAlerts = (regions: RegionData[], hhi: number): ConcentrationAlert[] => {
     const alerts: ConcentrationAlert[] = []
-    
-    // Overall concentration alert
-    if (hhi > 2500) {
-      alerts.push({
-        level: 'high',
-        message: 'High portfolio concentration risk',
-        recommendation: 'Consider diversifying across more sectors to reduce risk'
-      })
-    } else if (hhi > 1800) {
-      alerts.push({
-        level: 'medium',
-        message: 'Moderate portfolio concentration',
-        recommendation: 'Monitor sector allocation and consider broader diversification'
-      })
-    }
 
-    // Individual sector concentration alerts
-    sectors.forEach(sector => {
-      if (sector.percentage > 40) {
+    // Check for high regional concentration
+    regions.forEach(region => {
+      if (region.percentage > 60) {
         alerts.push({
           level: 'high',
-          message: `High concentration in ${sector.sector} (${sector.percentage.toFixed(1)}%)`,
-          recommendation: `Consider reducing exposure to ${sector.sector} sector`
+          message: `High ${region.region} Concentration`,
+          recommendation: `Consider reducing ${region.region} allocation from ${region.percentage.toFixed(1)}% to below 60% for better geographic diversification.`
         })
-      } else if (sector.percentage > 25) {
+      } else if (region.percentage > 40) {
         alerts.push({
           level: 'medium',
-          message: `Moderate concentration in ${sector.sector} (${sector.percentage.toFixed(1)}%)`,
-          recommendation: `Monitor ${sector.sector} sector performance closely`
+          message: `Moderate ${region.region} Concentration`,
+          recommendation: `Monitor ${region.region} allocation (${region.percentage.toFixed(1)}%). Consider diversifying if it exceeds 60%.`
         })
       }
     })
 
+    // Check HHI-based concentration
+    if (hhi > 3000) {
+      alerts.push({
+        level: 'high',
+        message: 'Poor Geographic Diversification',
+        recommendation: 'Portfolio is highly concentrated geographically. Consider adding positions from underrepresented regions.'
+      })
+    } else if (hhi > 2000) {
+      alerts.push({
+        level: 'medium',
+        message: 'Moderate Geographic Concentration',
+        recommendation: 'Good geographic spread but room for improvement. Consider minor adjustments to regional allocation.'
+      })
+    }
+
     return alerts
   }
-
-  useEffect(() => {
-    fetchSectorData()
-  }, [])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(value)
   }
 
-  const getSectorColor = (sector: string, index: number) => {
+  const getRegionColor = (region: string, index: number) => {
     const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
-      'bg-red-500', 'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500',
-      'bg-teal-500', 'bg-cyan-500', 'bg-gray-500'
+      'bg-blue-500',
+      'bg-green-500', 
+      'bg-yellow-500',
+      'bg-purple-500',
+      'bg-red-500',
+      'bg-indigo-500',
+      'bg-pink-500',
+      'bg-teal-500'
+    ]
+    return colors[index % colors.length]
+  }
+
+  const getCountryColor = (country: string, index: number) => {
+    const colors = [
+      'bg-blue-400',
+      'bg-green-400', 
+      'bg-yellow-400',
+      'bg-purple-400',
+      'bg-red-400',
+      'bg-indigo-400',
+      'bg-pink-400',
+      'bg-teal-400'
     ]
     return colors[index % colors.length]
   }
 
   const getAlertColor = (level: 'low' | 'medium' | 'high') => {
     switch (level) {
-      case 'high': return 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-400'
+      case 'low': return 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/50 dark:bg-blue-900/30 dark:text-blue-400'
       case 'medium': return 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-900/30 dark:text-yellow-400'
-      default: return 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/50 dark:bg-blue-900/30 dark:text-blue-400'
+      case 'high': return 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-400'
     }
   }
 
   const getAlertIcon = (level: 'low' | 'medium' | 'high') => {
     switch (level) {
+      case 'low': return <TrendingUp className="h-4 w-4" />
+      case 'medium': return <Clock className="h-4 w-4" />
       case 'high': return <AlertTriangle className="h-4 w-4" />
-      case 'medium': return <AlertTriangle className="h-4 w-4" />
-      default: return <TrendingUp className="h-4 w-4" />
     }
   }
 
   const getDiversificationScore = (hhi: number) => {
-    if (hhi < 1000) return { score: 'Excellent', color: 'text-green-600 dark:text-green-400' }
-    if (hhi < 1800) return { score: 'Good', color: 'text-blue-600 dark:text-blue-400' }
-    if (hhi < 2500) return { score: 'Moderate', color: 'text-yellow-600 dark:text-yellow-400' }
+    if (hhi < 1500) return { score: 'Excellent', color: 'text-green-600 dark:text-green-400' }
+    if (hhi < 2000) return { score: 'Good', color: 'text-blue-600 dark:text-blue-400' }
+    if (hhi < 3000) return { score: 'Moderate', color: 'text-yellow-600 dark:text-yellow-400' }
     return { score: 'Poor', color: 'text-red-600 dark:text-red-400' }
   }
 
@@ -345,21 +467,22 @@ export function SectorAllocation() {
   // Custom tooltip for charts
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: unknown[]; label?: string }) => {
     if (active && payload && payload.length) {
+      const data = payload[0] as any
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="font-medium">{label}</p>
           <p className="text-sm">
             <span className="font-medium">Value: </span>
-            {formatCurrency(payload[0].value)}
+            {formatCurrency(data.value)}
           </p>
           <p className="text-sm">
             <span className="font-medium">Percentage: </span>
-            {payload[0].payload.percentage?.toFixed(1)}%
+            {data.payload.percentage?.toFixed(1)}%
           </p>
-          {payload[0].payload.count && (
+          {data.payload.count && (
             <p className="text-sm">
               <span className="font-medium">Positions: </span>
-              {payload[0].payload.count}
+              {data.payload.count}
             </p>
           )}
         </div>
@@ -369,8 +492,13 @@ export function SectorAllocation() {
   }
 
   // Prepare chart data
-  const chartData = sectorData.map((sector, index) => ({
-    ...sector,
+  const regionChartData = regionData.map((region, index) => ({
+    ...region,
+    fill: CHART_COLORS[index % CHART_COLORS.length]
+  }))
+
+  const countryChartData = geographicData.map((country, index) => ({
+    ...country,
     fill: CHART_COLORS[index % CHART_COLORS.length]
   }))
 
@@ -382,11 +510,11 @@ export function SectorAllocation() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <PieChart className="h-5 w-5" />
-                Sector Allocation Analysis
+                <Globe className="h-5 w-5" />
+                Geographic Allocation Analysis
               </CardTitle>
               <CardDescription>
-                Portfolio diversification across industry sectors
+                Portfolio diversification across countries and regions
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -402,7 +530,7 @@ export function SectorAllocation() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchSectorData}
+                onClick={fetchGeographicData}
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -413,19 +541,25 @@ export function SectorAllocation() {
         </CardHeader>
       </Card>
 
-      {/* Rate Limit Warning */}
-      {enrichmentStats && enrichmentStats.dailyApiUsage.includes('/') && 
-       enrichmentStats.dailyApiUsage.split('/')[0] === enrichmentStats.dailyApiUsage.split('/')[1] && (
-        <Alert className="border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900/50 dark:bg-orange-900/30 dark:text-orange-400">
-          <Clock className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Alpha Vantage Daily Limit Reached</strong>
-            <br />
-            Used {enrichmentStats.dailyApiUsage} daily requests. 
-            Some positions processed without sector data. Try the Demo Data button to see full functionality.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* View Mode Toggle */}
+      <div className="flex gap-2">
+        <Button
+          variant={viewMode === 'regions' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setViewMode('regions')}
+        >
+          <Globe className="h-4 w-4 mr-2" />
+          Regions
+        </Button>
+        <Button
+          variant={viewMode === 'countries' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setViewMode('countries')}
+        >
+          <MapPin className="h-4 w-4 mr-2" />
+          Countries
+        </Button>
+      </div>
 
       {/* Mock Data Notice */}
       {showMockData && (
@@ -434,7 +568,7 @@ export function SectorAllocation() {
           <AlertDescription>
             <strong>Demo Mode Active</strong>
             <br />
-            Showing example sector allocation data. Click "Refresh" to try loading your real portfolio data.
+            Showing example geographic allocation data. Click "Refresh" to try loading your real portfolio data.
           </AlertDescription>
         </Alert>
       )}
@@ -480,7 +614,7 @@ export function SectorAllocation() {
       )}
 
       {/* Diversification Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Diversification Score</CardTitle>
@@ -500,32 +634,47 @@ export function SectorAllocation() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Sectors</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Regions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              <span className="text-2xl font-bold">{sectorData.length}</span>
+              <Globe className="h-4 w-4" />
+              <span className="text-2xl font-bold">{regionData.length}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Active sectors
+              Active regions
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Largest Sector</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Countries</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
+              <MapPin className="h-4 w-4" />
+              <span className="text-2xl font-bold">{geographicData.length}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Active countries
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Largest Region</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
               <span className="text-2xl font-bold">
-                {sectorData.length > 0 ? sectorData[0].percentage.toFixed(1) : 0}%
+                {regionData.length > 0 ? regionData[0].percentage.toFixed(1) : 0}%
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {sectorData.length > 0 ? sectorData[0].sector : 'No data'}
+              {regionData.length > 0 ? regionData[0].region : 'No data'}
             </p>
           </CardContent>
         </Card>
@@ -536,7 +685,7 @@ export function SectorAllocation() {
         <Alert className="border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-400">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Error loading sector data</strong>
+            <strong>Error loading geographic data</strong>
             <br />
             {error}
             <br />
@@ -556,19 +705,21 @@ export function SectorAllocation() {
         <Card>
           <CardContent className="flex items-center justify-center p-8">
             <RefreshCw className="h-8 w-8 animate-spin mr-2" />
-            <span>Analyzing sector allocation...</span>
+            <span>Analyzing geographic allocation...</span>
           </CardContent>
         </Card>
       )}
 
-      {/* Sector Breakdown with Charts */}
-      {!isLoading && sectorData.length > 0 && (
+      {/* Regional/Country Breakdown with Charts */}
+      {!isLoading && ((viewMode === 'regions' && regionData.length > 0) || (viewMode === 'countries' && geographicData.length > 0)) && (
         <Tabs defaultValue="table" className="w-full">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold">Sector Breakdown</h3>
+              <h3 className="text-lg font-semibold">
+                {viewMode === 'regions' ? 'Regional Breakdown' : 'Country Breakdown'}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Portfolio allocation across {sectorData.length} sectors (Total: {formatCurrency(totalValue)})
+                Portfolio allocation across {viewMode === 'regions' ? regionData.length : geographicData.length} {viewMode} (Total: {formatCurrency(totalValue)})
                 {showMockData && ' - Demo Data'}
               </p>
             </div>
@@ -583,37 +734,54 @@ export function SectorAllocation() {
             <Card>
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  {sectorData.map((sector, index) => (
-                    <div key={sector.sector} className="space-y-2">
+                  {(viewMode === 'regions' ? regionData : geographicData).map((item, index) => (
+                    <div key={viewMode === 'regions' ? (item as RegionData).region : (item as GeographicData).country} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full ${getSectorColor(sector.sector, index)}`} />
+                          <div className={`w-4 h-4 rounded-full ${viewMode === 'regions' ? getRegionColor((item as RegionData).region, index) : getCountryColor((item as GeographicData).country, index)}`} />
                           <div>
-                            <span className="font-medium">{sector.sector}</span>
+                            <span className="font-medium">
+                              {viewMode === 'regions' ? (item as RegionData).region : (item as GeographicData).country}
+                            </span>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant="outline" className="text-xs">
-                                {sector.count} position{sector.count > 1 ? 's' : ''}
+                                {viewMode === 'regions' ? (item as RegionData).count : (item as GeographicData).count} position{(viewMode === 'regions' ? (item as RegionData).count : (item as GeographicData).count) > 1 ? 's' : ''}
                               </Badge>
-                              {sector.avgPE && (
+                              {viewMode === 'regions' && (
                                 <Badge variant="outline" className="text-xs">
-                                  Avg P/E: {sector.avgPE.toFixed(1)}
+                                  {(item as RegionData).countries.length} countr{(item as RegionData).countries.length > 1 ? 'ies' : 'y'}
+                                </Badge>
+                              )}
+                              {viewMode === 'countries' && (item as GeographicData).avgPE && (
+                                <Badge variant="outline" className="text-xs">
+                                  Avg P/E: {(item as GeographicData).avgPE!.toFixed(1)}
                                 </Badge>
                               )}
                             </div>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium">{formatCurrency(sector.value)}</div>
+                          <div className="font-medium">{formatCurrency(item.value)}</div>
                           <div className="text-sm text-muted-foreground">
-                            {sector.percentage.toFixed(1)}%
+                            {item.percentage.toFixed(1)}%
                           </div>
                         </div>
                       </div>
-                      <Progress value={sector.percentage} className="h-2" />
+                      <Progress value={item.percentage} className="h-2" />
                       <div className="text-xs text-muted-foreground">
-                        <span className="font-medium">Companies: </span>
-                        {sector.companies.slice(0, 3).join(', ')}
-                        {sector.companies.length > 3 && ` +${sector.companies.length - 3} more`}
+                        {viewMode === 'regions' ? (
+                          <>
+                            <span className="font-medium">Countries: </span>
+                            {(item as RegionData).countries.slice(0, 3).join(', ')}
+                            {(item as RegionData).countries.length > 3 && ` +${(item as RegionData).countries.length - 3} more`}
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-medium">Companies: </span>
+                            {(item as GeographicData).companies.slice(0, 3).join(', ')}
+                            {(item as GeographicData).companies.length > 3 && ` +${(item as GeographicData).companies.length - 3} more`}
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -629,17 +797,17 @@ export function SectorAllocation() {
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                       <Pie
-                        data={chartData}
+                        data={viewMode === 'regions' ? regionChartData : countryChartData}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
                         outerRadius={140}
                         paddingAngle={2}
                         dataKey="value"
-                        label={({ sector, percentage }) => `${sector}: ${percentage.toFixed(1)}%`}
+                        label={({ percentage }) => `${percentage.toFixed(1)}%`}
                         labelLine={false}
                       >
-                        {chartData.map((entry, index) => (
+                        {(viewMode === 'regions' ? regionChartData : countryChartData).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
                       </Pie>
@@ -649,14 +817,16 @@ export function SectorAllocation() {
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {chartData.map((sector) => (
-                    <div key={sector.sector} className="flex items-center gap-2 text-sm">
+                  {(viewMode === 'regions' ? regionChartData : countryChartData).map((item) => (
+                    <div key={viewMode === 'regions' ? (item as any).region : (item as any).country} className="flex items-center gap-2 text-sm">
                       <div 
                         className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: sector.fill }}
+                        style={{ backgroundColor: item.fill }}
                       />
-                      <span className="truncate">{sector.sector}</span>
-                      <span className="text-muted-foreground">({sector.percentage.toFixed(1)}%)</span>
+                      <span className="truncate">
+                        {viewMode === 'regions' ? (item as any).region : (item as any).country}
+                      </span>
+                      <span className="text-muted-foreground">({item.percentage.toFixed(1)}%)</span>
                     </div>
                   ))}
                 </div>
@@ -669,10 +839,13 @@ export function SectorAllocation() {
               <CardContent className="pt-6">
                 <div className="h-[400px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <BarChart 
+                      data={viewMode === 'regions' ? regionChartData : countryChartData} 
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
-                        dataKey="sector" 
+                        dataKey={viewMode === 'regions' ? 'region' : 'country'}
                         angle={-45}
                         textAnchor="end"
                         height={100}
@@ -691,7 +864,7 @@ export function SectorAllocation() {
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-4 text-center text-sm text-muted-foreground">
-                  Sector allocation by portfolio value - hover over bars for details
+                  {viewMode === 'regions' ? 'Regional' : 'Country'} allocation by portfolio value - hover over bars for details
                 </div>
               </CardContent>
             </Card>
@@ -700,11 +873,11 @@ export function SectorAllocation() {
       )}
 
       {/* Empty State */}
-      {!isLoading && !error && sectorData.length === 0 && (
+      {!isLoading && !error && regionData.length === 0 && geographicData.length === 0 && (
         <Card>
           <CardContent className="text-center py-8 text-muted-foreground">
-            <PieChart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No sector data available.</p>
+            <Globe className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No geographic data available.</p>
             <p className="text-sm mt-2">Make sure you have positions in your Trading212 account.</p>
             <Button 
               variant="outline" 

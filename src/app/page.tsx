@@ -9,6 +9,9 @@ import { PortfolioStatus } from "@/components/portfolio-status";
 import { RealPositionsTable } from "@/components/real-positions-table";
 import { EnrichedPositionsTable } from "@/components/enriched-positions-table";
 import { SectorAllocation } from "@/components/sector-allocation";
+import { GeographicAllocation } from "@/components/geographic-allocation";
+import { ExchangeAllocation } from "@/components/exchange-allocation";
+import { RiskAnalysis } from "@/components/risk-analysis";
 import { useState } from "react";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { trading212Cache } from "@/lib/trading212-cache";
@@ -140,11 +143,12 @@ export default function Home() {
 
       {/* Tabs Section */}
       <Tabs defaultValue="enhanced" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="enhanced">Enhanced</TabsTrigger>
           <TabsTrigger value="positions">Basic</TabsTrigger>
           <TabsTrigger value="sectors">Sectors</TabsTrigger>
           <TabsTrigger value="regions">Regions</TabsTrigger>
+          <TabsTrigger value="exchanges">Exchanges</TabsTrigger>
           <TabsTrigger value="risk">Risk Analysis</TabsTrigger>
         </TabsList>
         
@@ -161,56 +165,15 @@ export default function Home() {
         </TabsContent>
         
         <TabsContent value="regions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Geographic Distribution</CardTitle>
-              <CardDescription>Portfolio exposure by region</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span>United States</span>
-                  <span>70%</span>
-                </div>
-                <Progress value={70} />
-                <div className="flex items-center justify-between">
-                  <span>Europe</span>
-                  <span>20%</span>
-                </div>
-                <Progress value={20} />
-                <div className="flex items-center justify-between">
-                  <span>Asia-Pacific</span>
-                  <span>10%</span>
-                </div>
-                <Progress value={10} />
-              </div>
-            </CardContent>
-          </Card>
+          <GeographicAllocation />
+        </TabsContent>
+        
+        <TabsContent value="exchanges" className="space-y-4">
+          <ExchangeAllocation />
         </TabsContent>
         
         <TabsContent value="risk" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Risk Analysis</CardTitle>
-              <CardDescription>Portfolio risk assessment and recommendations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                  <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">Concentration Risk</h4>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    Your portfolio is heavily concentrated in technology stocks (35%). Consider diversifying.
-                  </p>
-                </div>
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-semibold text-blue-800 dark:text-blue-200">Recommendation</h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Consider adding exposure to energy, utilities, or emerging markets for better diversification.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <RiskAnalysis />
         </TabsContent>
       </Tabs>
     </div>
