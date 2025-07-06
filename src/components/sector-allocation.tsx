@@ -7,8 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { RefreshCw, AlertTriangle, TrendingUp, PieChart, BarChart3, Building2, Target, Clock, Zap } from 'lucide-react'
+import { RefreshCw, AlertTriangle, TrendingUp, PieChart, BarChart3, Building2, Target, Clock, Zap, Download, FileText } from 'lucide-react'
 import { trading212Cache } from '@/lib/trading212-cache'
+import { 
+  exportSectorAllocationToCSV,
+  SectorAllocation as SectorAllocationExport
+} from '@/lib/export-utils'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { 
   PieChart as RechartsPieChart, 
   Pie, 
@@ -428,6 +433,20 @@ export function SectorAllocation() {
     setChartAnimation(!chartAnimation)
   }
 
+  const handleExportSectorCSV = () => {
+    const exportData: SectorAllocationExport[] = sectorData.map(sector => ({
+      sector: sector.sector,
+      value: sector.value,
+      percentage: sector.percentage,
+      positionCount: sector.count,
+      avgPeRatio: sector.avgPE || 0,
+      pnl: 0, // Note: P&L calculation would need additional data
+      pnlPercent: 0
+    }))
+    
+    exportSectorAllocationToCSV(exportData)
+  }
+
   // Prepare enhanced chart data with gradients and interactions
   const enhancedChartData = sectorData.map((sector, index) => ({
     ...sector,
@@ -458,6 +477,22 @@ export function SectorAllocation() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isLoading || sectorData.length === 0}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleExportSectorCSV}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Sector Allocation CSV
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 size="sm"

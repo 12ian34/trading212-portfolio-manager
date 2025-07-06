@@ -1,13 +1,25 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, AlertCircle, TrendingUp, TrendingDown, Building, Globe, DollarSign } from 'lucide-react'
+import { RefreshCw, AlertCircle, TrendingUp, TrendingDown, Building, Globe, DollarSign, Download, FileText, Info } from 'lucide-react'
 import { Trading212Position } from '@/lib/types'
 import { trading212Cache } from '@/lib/trading212-cache'
+import { 
+  exportPositionsToCSV, 
+  exportPortfolioToPDF, 
+  calculatePortfolioSummary, 
+  calculateSectorAllocation, 
+  calculateRegionalAllocation,
+  ExportablePosition
+} from '@/lib/export-utils'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { FilterPanel } from '@/components/filter-panel'
+import { useFilterSort } from '@/hooks/use-filter-sort'
+import { FilterablePosition } from '@/lib/filter-utils'
 
 interface EnrichedPosition extends Trading212Position {
   // Alpha Vantage fundamental data
@@ -45,6 +57,42 @@ export function EnrichedPositionsTable() {
   const [isEnriching, setIsEnriching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [enrichmentStats, setEnrichmentStats] = useState<{ total: number, enriched: number } | null>(null)
+
+  // Convert enriched positions to filterable positions
+  const filterablePositions = useMemo((): FilterablePosition[] => {
+    return enrichedPositions.map(pos => ({
+      ticker: pos.ticker,
+      companyName: pos.companyName,
+      sector: pos.sector,
+      industry: pos.industry,
+      country: pos.country,
+      exchange: pos.exchange,
+      marketCap: pos.marketCap,
+      peRatio: pos.peRatio,
+      dividendYield: pos.dividendYield,
+      eps: pos.eps,
+      beta: pos.beta,
+      currentPrice: pos.currentPrice,
+      quantity: pos.quantity,
+      ppl: pos.ppl,
+      averagePrice: pos.averagePrice,
+      initialFillDate: pos.initialFillDate,
+    }))
+  }, [enrichedPositions])
+
+  // Calculate total portfolio value
+  const totalPortfolioValue = useMemo(() => {
+    return enrichedPositions.reduce((total, pos) => total + (pos.currentPrice * pos.quantity), 0)
+  }, [enrichedPositions])
+
+  // Use filter and sort hook
+  const {
+    positions: filteredPositions,
+    updateFilters,
+    updateSorts,
+    updatePresets,
+    filterStats,
+  } = useFilterSort(filterablePositions, totalPortfolioValue)
 
   const fetchAndEnrichPositions = async () => {
     setIsLoading(true)
@@ -159,25 +207,110 @@ export function EnrichedPositionsTable() {
     return sectorColors[sector] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
   }
 
+  const handleExportCSV = () => {
+    // Use filtered positions for export
+    const exportablePositions: ExportablePosition[] = filteredPositions.map(pos => {
+      const originalPos = enrichedPositions.find(ep => ep.ticker === pos.ticker)
+      return {
+        ...originalPos,
+        ...pos,
+        marketValue: pos.currentPrice * pos.quantity,
+        pnlPercent: (pos.ppl / (pos.currentPrice * pos.quantity)) * 100
+      }
+    })
+    
+    exportPositionsToCSV(exportablePositions)
+  }
+
+  const handleExportPDF = async () => {
+    // Use filtered positions for export
+    const exportablePositions: ExportablePosition[] = filteredPositions.map(pos => {
+      const originalPos = enrichedPositions.find(ep => ep.ticker === pos.ticker)
+      return {
+        ...originalPos,
+        ...pos,
+        marketValue: pos.currentPrice * pos.quantity,
+        pnlPercent: (pos.ppl / (pos.currentPrice * pos.quantity)) * 100
+      }
+    })
+    
+    const summary = calculatePortfolioSummary(exportablePositions)
+    const sectorData = calculateSectorAllocation(exportablePositions)
+    const regionalData = calculateRegionalAllocation(exportablePositions)
+    
+    await exportPortfolioToPDF(exportablePositions, summary, sectorData, regionalData)
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Enhanced Portfolio Positions</CardTitle>
-            <CardDescription>
-              Trading212 positions enriched with fundamental data from Alpha Vantage
-            </CardDescription>
+    <div className="space-y-4">
+      {/* Filter Panel */}
+      <FilterPanel
+        positions={filterablePositions}
+        onFilterChange={updateFilters}
+        onSortChange={updateSorts}
+        onPresetsChange={updatePresets}
+      />
+
+      {/* Results Summary */}
+      {filterStats.hasFilters && (
+        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+          <Info className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            Showing {filterStats.filteredCount} of {filterStats.originalCount} positions
+            {filterStats.removedCount > 0 && (
+              <span className="text-orange-600 dark:text-orange-400">
+                {' '}({filterStats.removedCount} filtered out)
+              </span>
+            )}
+            {filterStats.activePresetName && (
+              <span className="text-blue-600 dark:text-blue-400">
+                {' '}• Active preset: {filterStats.activePresetName}
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Enhanced Portfolio Positions</CardTitle>
+              <CardDescription>
+                Trading212 positions enriched with fundamental data from Alpha Vantage
+              </CardDescription>
+            </div>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isLoading || filteredPositions.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download PDF Report
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchAndEnrichPositions}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              {isEnriching ? 'Enriching...' : 'Refresh'}
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchAndEnrichPositions}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            {isEnriching ? 'Enriching...' : 'Refresh'}
-          </Button>
         </div>
         
         {/* Enrichment Status */}
@@ -214,113 +347,222 @@ export function EnrichedPositionsTable() {
           </div>
         )}
 
-        {/* Enhanced Positions Table */}
-        {!isLoading && enrichedPositions.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Symbol</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Sector</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Current Price</TableHead>
-                <TableHead>Market Value</TableHead>
-                <TableHead>P&L</TableHead>
-                <TableHead>PE Ratio</TableHead>
-                <TableHead>Market Cap</TableHead>
-                <TableHead>Country</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {enrichedPositions.map((position) => {
+        {/* Enhanced Positions Table - Desktop */}
+        <div className="hidden lg:block">
+          {!isLoading && filteredPositions.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Sector</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Current Price</TableHead>
+                  <TableHead>Market Value</TableHead>
+                  <TableHead>P&L</TableHead>
+                  <TableHead>PE Ratio</TableHead>
+                  <TableHead>Market Cap</TableHead>
+                  <TableHead>Country</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPositions.map((position) => {
+                  const value = calculateValue(position)
+                  const pnlPercent = calculatePnLPercent(position)
+                  
+                  return (
+                    <TableRow key={position.ticker}>
+                      <TableCell className="font-medium">
+                        {formatTicker(position.ticker)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {position.companyName || 'Unknown Company'}
+                          </span>
+                          {position.industry && (
+                            <span className="text-xs text-muted-foreground">
+                              {position.industry}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {position.sector ? (
+                          <Badge className={getSectorColor(position.sector)}>
+                            {position.sector}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">N/A</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{position.quantity}</TableCell>
+                      <TableCell>{formatCurrency(position.currentPrice)}</TableCell>
+                      <TableCell>{formatCurrency(value)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <div className={`flex items-center gap-1 ${getPnLColor(position.ppl)}`}>
+                            {getPnLIcon(position.ppl)}
+                            {formatCurrency(position.ppl)}
+                          </div>
+                          <Badge 
+                            variant={pnlPercent > 0 ? "default" : pnlPercent < 0 ? "destructive" : "secondary"}
+                            className={pnlPercent > 0 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : ""}
+                          >
+                            {pnlPercent > 0 ? '+' : ''}{pnlPercent.toFixed(2)}%
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {position.peRatio ? (
+                          <span className="font-medium">{position.peRatio.toFixed(1)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {position.marketCap ? (
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-3 w-3" />
+                            {formatLargeNumber(position.marketCap)}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {position.country ? (
+                          <div className="flex items-center gap-1">
+                            <Globe className="h-3 w-3" />
+                            {position.country}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">N/A</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        {/* Enhanced Positions Cards - Mobile & Tablet */}
+        <div className="lg:hidden">
+          {!isLoading && filteredPositions.length > 0 && (
+            <div className="space-y-4">
+              {filteredPositions.map((position) => {
                 const value = calculateValue(position)
                 const pnlPercent = calculatePnLPercent(position)
                 
                 return (
-                  <TableRow key={position.ticker}>
-                    <TableCell className="font-medium">
-                      {formatTicker(position.ticker)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">
+                  <Card key={position.ticker} className="p-4 hover:shadow-md transition-shadow">
+                    <div className="space-y-4">
+                      {/* Header Row */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold">{formatTicker(position.ticker)}</span>
+                          {position.sector && (
+                            <Badge className={getSectorColor(position.sector)}>
+                              {position.sector}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold">{formatCurrency(value)}</div>
+                          <div className="text-sm text-muted-foreground">Market Value</div>
+                        </div>
+                      </div>
+
+                      {/* Company Info */}
+                      <div className="space-y-1">
+                        <div className="font-medium text-sm">
                           {position.companyName || 'Unknown Company'}
-                        </span>
+                        </div>
                         {position.industry && (
-                          <span className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             {position.industry}
-                          </span>
+                          </div>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {position.sector ? (
-                        <Badge className={getSectorColor(position.sector)}>
-                          {position.sector}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">N/A</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{position.quantity}</TableCell>
-                    <TableCell>{formatCurrency(position.currentPrice)}</TableCell>
-                    <TableCell>{formatCurrency(value)}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <div className={`flex items-center gap-1 ${getPnLColor(position.ppl)}`}>
-                          {getPnLIcon(position.ppl)}
-                          {formatCurrency(position.ppl)}
+
+                      {/* Performance Row */}
+                      <div className="flex items-center justify-between bg-muted/30 p-3 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className={`flex items-center gap-1 ${getPnLColor(position.ppl)}`}>
+                            {getPnLIcon(position.ppl)}
+                            <span className="font-medium">{formatCurrency(position.ppl)}</span>
+                          </div>
+                          <Badge 
+                            variant={pnlPercent > 0 ? "default" : pnlPercent < 0 ? "destructive" : "secondary"}
+                            className={pnlPercent > 0 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : ""}
+                          >
+                            {pnlPercent > 0 ? '+' : ''}{pnlPercent.toFixed(2)}%
+                          </Badge>
                         </div>
-                        <Badge 
-                          variant={pnlPercent > 0 ? "default" : pnlPercent < 0 ? "destructive" : "secondary"}
-                          className={pnlPercent > 0 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : ""}
-                        >
-                          {pnlPercent > 0 ? '+' : ''}{pnlPercent.toFixed(2)}%
-                        </Badge>
+                        <div className="text-right text-sm space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">PE:</span>
+                            <span className="font-medium">
+                              {position.peRatio ? position.peRatio.toFixed(1) : 'N/A'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">Cap:</span>
+                            <span className="font-medium">
+                              {position.marketCap ? formatLargeNumber(position.marketCap) : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {position.peRatio ? (
-                        <span className="font-medium">{position.peRatio.toFixed(1)}</span>
-                      ) : (
-                        <span className="text-muted-foreground">N/A</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {position.marketCap ? (
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          {formatLargeNumber(position.marketCap)}
+
+                      {/* Details Row */}
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <div className="flex items-center gap-4">
+                          {position.country && (
+                            <div className="flex items-center gap-1">
+                              <Globe className="h-3 w-3" />
+                              {position.country}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <span>Qty:</span>
+                            <span className="font-medium">{position.quantity}</span>
+                          </div>
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground">N/A</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {position.country ? (
-                        <div className="flex items-center gap-1">
-                          <Globe className="h-3 w-3" />
-                          {position.country}
+                        <div className="text-right">
+                          <div className="font-medium">
+                            {formatCurrency(position.currentPrice)}
+                          </div>
+                          <div className="text-xs">Current Price</div>
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground">N/A</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                      </div>
+                    </div>
+                  </Card>
                 )
               })}
-            </TableBody>
-          </Table>
-        )}
+            </div>
+          )}
+        </div>
 
         {/* Empty State */}
-        {!isLoading && !error && enrichedPositions.length === 0 && (
+        {!isLoading && !error && filteredPositions.length === 0 && enrichedPositions.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <p>No positions found in your Trading212 account.</p>
             <p className="text-sm mt-2">Make sure you have some investments in your portfolio.</p>
           </div>
         )}
+        
+        {/* No Results After Filtering */}
+        {!isLoading && !error && filteredPositions.length === 0 && enrichedPositions.length > 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No positions match your current filters.</p>
+            <p className="text-sm mt-2">Try adjusting your filters or clearing them to see all positions.</p>
+          </div>
+        )}
       </CardContent>
     </Card>
+  </div>
   )
 } 

@@ -201,17 +201,135 @@ export type RiskAlert = z.infer<typeof RiskAlertSchema>
 export type RebalanceRecommendation = z.infer<typeof RebalanceRecommendationSchema>
 export type ApiResponse<T = unknown> = z.infer<typeof ApiResponseSchema> & { data: T | null }
 
-// Filter and sort types
-export type SortField = 'ticker' | 'value' | 'ppl' | 'pplPercent' | 'peRatio' | 'sector' | 'weight'
+// Enhanced Filtering and Sorting Types
+export type SortField = 'ticker' | 'value' | 'ppl' | 'pplPercent' | 'peRatio' | 'sector' | 'weight' | 'companyName' | 'country' | 'exchange' | 'marketCap' | 'dividendYield' | 'eps' | 'beta'
 export type SortOrder = 'asc' | 'desc'
-export type FilterCriteria = {
+
+export interface SortConfig {
+  field: SortField
+  order: SortOrder
+}
+
+export interface FilterCriteria {
+  // Text search
+  search?: string
+  
+  // Categorical filters
   sectors?: string[]
-  regions?: string[]
+  countries?: string[]
+  exchanges?: string[]
+  
+  // Numeric range filters
   minValue?: number
   maxValue?: number
   minPE?: number
   maxPE?: number
   minWeight?: number
   maxWeight?: number
-  search?: string
-} 
+  minMarketCap?: number
+  maxMarketCap?: number
+  minDividendYield?: number
+  maxDividendYield?: number
+  minEPS?: number
+  maxEPS?: number
+  minBeta?: number
+  maxBeta?: number
+  
+  // Performance filters
+  minPnL?: number
+  maxPnL?: number
+  minPnLPercent?: number
+  maxPnLPercent?: number
+  
+  // Boolean filters
+  showOnlyProfitable?: boolean
+  showOnlyLosers?: boolean
+  showOnlyDividendPayers?: boolean
+}
+
+export interface FilterPreset {
+  id: string
+  name: string
+  description?: string
+  criteria: FilterCriteria
+  sortConfig?: SortConfig[]
+  createdAt: string
+  updatedAt: string
+}
+
+// Multi-column sorting
+export interface MultiSort {
+  sorts: SortConfig[]
+}
+
+// Filter and sort state
+export interface FilterSortState {
+  filters: FilterCriteria
+  sorts: SortConfig[]
+  presets: FilterPreset[]
+  activePresetId?: string
+}
+
+// Filter options for dropdowns
+export interface FilterOptions {
+  sectors: string[]
+  countries: string[]
+  exchanges: string[]
+  minValue: number
+  maxValue: number
+  minPE: number
+  maxPE: number
+  minMarketCap: number
+  maxMarketCap: number
+}
+
+// Schema for validation
+export const FilterCriteriaSchema = z.object({
+  search: z.string().optional(),
+  sectors: z.array(z.string()).optional(),
+  countries: z.array(z.string()).optional(),
+  exchanges: z.array(z.string()).optional(),
+  minValue: z.number().optional(),
+  maxValue: z.number().optional(),
+  minPE: z.number().optional(),
+  maxPE: z.number().optional(),
+  minWeight: z.number().optional(),
+  maxWeight: z.number().optional(),
+  minMarketCap: z.number().optional(),
+  maxMarketCap: z.number().optional(),
+  minDividendYield: z.number().optional(),
+  maxDividendYield: z.number().optional(),
+  minEPS: z.number().optional(),
+  maxEPS: z.number().optional(),
+  minBeta: z.number().optional(),
+  maxBeta: z.number().optional(),
+  minPnL: z.number().optional(),
+  maxPnL: z.number().optional(),
+  minPnLPercent: z.number().optional(),
+  maxPnLPercent: z.number().optional(),
+  showOnlyProfitable: z.boolean().optional(),
+  showOnlyLosers: z.boolean().optional(),
+  showOnlyDividendPayers: z.boolean().optional(),
+})
+
+export const SortConfigSchema = z.object({
+  field: z.enum(['ticker', 'value', 'ppl', 'pplPercent', 'peRatio', 'sector', 'weight', 'companyName', 'country', 'exchange', 'marketCap', 'dividendYield', 'eps', 'beta']),
+  order: z.enum(['asc', 'desc']),
+})
+
+export const FilterPresetSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  criteria: FilterCriteriaSchema,
+  sortConfig: z.array(SortConfigSchema).optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const FilterSortStateSchema = z.object({
+  filters: FilterCriteriaSchema,
+  sorts: z.array(SortConfigSchema),
+  presets: z.array(FilterPresetSchema),
+  activePresetId: z.string().optional(),
+}) 
