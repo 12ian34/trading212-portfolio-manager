@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -77,8 +77,10 @@ export function SectorAllocation() {
   const [herfindahlIndex, setHerfindahlIndex] = useState(0)
   const [enrichmentStats, setEnrichmentStats] = useState<EnrichmentResponse['summary'] | null>(null)
   const [showMockData, setShowMockData] = useState(false)
+  const [selectedSector, setSelectedSector] = useState<string | null>(null)
+  const [chartAnimation, setChartAnimation] = useState(true)
 
-  const fetchSectorData = async () => {
+  const fetchSectorData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     setShowMockData(false)
@@ -182,7 +184,7 @@ export function SectorAllocation() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   const loadMockData = () => {
     // Generate mock sector data for demonstration when hitting rate limits
@@ -336,13 +338,14 @@ export function SectorAllocation() {
     return { score: 'Poor', color: 'text-red-600 dark:text-red-400' }
   }
 
-  // Chart colors
-  const CHART_COLORS = [
+  // Enhanced chart colors with gradients
+  const ENHANCED_CHART_COLORS = [
     '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-    '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6366f1'
+    '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6366f1',
+    '#14b8a6', '#f43f5e', '#a855f7', '#eab308', '#22c55e'
   ]
 
-  // Custom tooltip for charts
+  // Custom tooltip interface
   interface TooltipData {
     value: number
     payload: {
@@ -351,36 +354,92 @@ export function SectorAllocation() {
     }
   }
 
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipData[]; label?: string }) => {
+  // Enhanced custom tooltip with better styling and more info
+  const EnhancedCustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipData[]; label?: string }) => {
     if (active && payload && payload.length) {
       const data = payload[0]
+      const sectorInfo = sectorData.find(s => s.sector === label)
+      
       return (
-        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
-          <p className="font-medium">{label}</p>
-          <p className="text-sm">
-            <span className="font-medium">Value: </span>
-            {formatCurrency(data.value)}
-          </p>
-          <p className="text-sm">
-            <span className="font-medium">Percentage: </span>
-            {data.payload.percentage?.toFixed(1)}%
-          </p>
-          {data.payload.count && (
-            <p className="text-sm">
-              <span className="font-medium">Positions: </span>
-              {data.payload.count}
-            </p>
-          )}
+        <div className="bg-white dark:bg-gray-900 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-xl backdrop-blur-sm">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div 
+                className="w-4 h-4 rounded-full border-2 border-white shadow-sm" 
+                style={{ backgroundColor: chartData.find(d => d.sector === label)?.fill }}
+              />
+              <h3 className="font-bold text-lg">{label}</h3>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Portfolio Value</p>
+                <p className="font-bold text-lg">{formatCurrency(data.value)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Allocation</p>
+                <p className="font-bold text-lg">{data.payload.percentage?.toFixed(1)}%</p>
+              </div>
+              {sectorInfo?.count && (
+                <div>
+                  <p className="text-muted-foreground">Positions</p>
+                  <p className="font-bold">{sectorInfo.count} stocks</p>
+                </div>
+              )}
+              {sectorInfo?.avgPE && (
+                <div>
+                  <p className="text-muted-foreground">Avg P/E Ratio</p>
+                  <p className="font-bold">{sectorInfo.avgPE.toFixed(1)}</p>
+                </div>
+              )}
+            </div>
+            
+            {sectorInfo?.companies && (
+              <div>
+                <p className="text-muted-foreground text-xs mb-1">Top Holdings:</p>
+                <p className="text-xs font-medium">{sectorInfo.companies.slice(0, 3).join(', ')}</p>
+                {sectorInfo.companies.length > 3 && (
+                  <p className="text-xs text-muted-foreground">+{sectorInfo.companies.length - 3} more companies</p>
+                )}
+              </div>
+            )}
+            
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-muted-foreground">💡 Click to drill down into individual stocks</p>
+            </div>
+          </div>
         </div>
       )
     }
     return null
   }
 
+  // Handle sector click for drill-down
+  const handleSectorClick = (sector: string) => {
+    setSelectedSector(selectedSector === sector ? null : sector)
+    // Add haptic feedback on supported devices
+    if (navigator.vibrate) {
+      navigator.vibrate(50)
+    }
+  }
+
+  // Handle chart animation toggle
+  const toggleAnimation = () => {
+    setChartAnimation(!chartAnimation)
+  }
+
+  // Prepare enhanced chart data with gradients and interactions
+  const enhancedChartData = sectorData.map((sector, index) => ({
+    ...sector,
+    fill: ENHANCED_CHART_COLORS[index % ENHANCED_CHART_COLORS.length],
+    isSelected: selectedSector === sector.sector,
+    opacity: selectedSector ? (selectedSector === sector.sector ? 1 : 0.3) : 1
+  }))
+
   // Prepare chart data
   const chartData = sectorData.map((sector, index) => ({
     ...sector,
-    fill: CHART_COLORS[index % CHART_COLORS.length]
+    fill: ENHANCED_CHART_COLORS[index % ENHANCED_CHART_COLORS.length]
   }))
 
   return (
@@ -632,41 +691,148 @@ export function SectorAllocation() {
           </TabsContent>
 
           <TabsContent value="pie">
-            <Card>
+            <Card className="overflow-hidden">
               <CardContent className="pt-6">
-                <div className="h-[400px] w-full">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="font-semibold">Sector Distribution</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedSector ? `Focused on ${selectedSector}` : 'Interactive pie chart'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleAnimation}
+                      className="text-xs"
+                    >
+                      {chartAnimation ? '⏸️' : '▶️'} Animation
+                    </Button>
+                    {selectedSector && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedSector(null)}
+                        className="text-xs"
+                      >
+                        ✖️ Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="h-[500px] w-full relative">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
+                      <defs>
+                        {enhancedChartData.map((entry, index) => (
+                          <linearGradient key={index} id={`gradient-${index}`} x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor={entry.fill} stopOpacity={0.9} />
+                            <stop offset="100%" stopColor={entry.fill} stopOpacity={0.6} />
+                          </linearGradient>
+                        ))}
+                      </defs>
                       <Pie
-                        data={chartData}
+                        data={enhancedChartData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={140}
-                        paddingAngle={2}
+                        innerRadius={80}
+                        outerRadius={180}
+                        paddingAngle={3}
                         dataKey="value"
-                        label={({ sector, percentage }) => `${sector}: ${percentage.toFixed(1)}%`}
+                        animationBegin={0}
+                        animationDuration={chartAnimation ? 1500 : 0}
+                        animationEasing="ease-out"
+                        label={({ sector, percentage, isSelected }) => 
+                          isSelected || !selectedSector ? `${sector}: ${percentage.toFixed(1)}%` : ''
+                        }
                         labelLine={false}
+                        onClick={(data) => handleSectorClick(data.sector)}
+                        onMouseEnter={(data) => {
+                          // Add subtle hover effect
+                          const element = document.querySelector(`[data-sector="${data.sector}"]`) as HTMLElement
+                          if (element) {
+                            element.style.filter = 'brightness(1.1) drop-shadow(0 4px 8px rgba(0,0,0,0.2))'
+                          }
+                        }}
+                        onMouseLeave={(data) => {
+                          const element = document.querySelector(`[data-sector="${data.sector}"]`) as HTMLElement
+                          if (element) {
+                            element.style.filter = 'none'
+                          }
+                        }}
                       >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        {enhancedChartData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={`url(#gradient-${index})`}
+                            stroke={entry.isSelected ? '#fff' : 'none'}
+                            strokeWidth={entry.isSelected ? 3 : 0}
+                            style={{
+                              opacity: entry.opacity,
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease'
+                            }}
+                            data-sector={entry.sector}
+                          />
                         ))}
                       </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend />
+                      <Tooltip content={<EnhancedCustomTooltip />} />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: '20px' }}
+                        onClick={(entry) => entry.value && handleSectorClick(entry.value)}
+                        iconType="circle"
+                      />
                     </RechartsPieChart>
                   </ResponsiveContainer>
+                  
+                  {selectedSector && (
+                    <div className="absolute top-4 right-4 bg-white dark:bg-gray-900 rounded-lg border shadow-lg p-3 max-w-xs">
+                      <h4 className="font-semibold text-sm mb-2">🔍 {selectedSector} Details</h4>
+                      <div className="space-y-1 text-xs">
+                        {(() => {
+                          const sector = sectorData.find(s => s.sector === selectedSector)
+                          return sector ? (
+                            <>
+                              <p><strong>Value:</strong> {formatCurrency(sector.value)}</p>
+                              <p><strong>Allocation:</strong> {sector.percentage.toFixed(1)}%</p>
+                              <p><strong>Positions:</strong> {sector.count} stocks</p>
+                              {sector.avgPE && <p><strong>Avg P/E:</strong> {sector.avgPE.toFixed(1)}</p>}
+                              <div className="pt-2 border-t">
+                                <p className="font-medium">Companies:</p>
+                                <p className="text-muted-foreground">{sector.companies.join(', ')}</p>
+                              </div>
+                            </>
+                          ) : null
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {chartData.map((sector) => (
-                    <div key={sector.sector} className="flex items-center gap-2 text-sm">
+                
+                <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {enhancedChartData.map((sector) => (
+                    <button
+                      key={sector.sector}
+                      onClick={() => handleSectorClick(sector.sector)}
+                      className={`flex items-center gap-2 p-3 rounded-lg border transition-all duration-300 ${
+                        sector.isSelected 
+                          ? 'bg-primary/10 border-primary shadow-md scale-105' 
+                          : 'hover:bg-muted border-border hover:shadow-sm'
+                      }`}
+                    >
                       <div 
-                        className="w-3 h-3 rounded-full" 
+                        className="w-4 h-4 rounded-full shadow-sm flex-shrink-0" 
                         style={{ backgroundColor: sector.fill }}
                       />
-                      <span className="truncate">{sector.sector}</span>
-                      <span className="text-muted-foreground">({sector.percentage.toFixed(1)}%)</span>
-                    </div>
+                      <div className="text-left min-w-0">
+                        <p className="font-medium text-sm truncate">{sector.sector}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {sector.percentage.toFixed(1)}% • {sector.count} stocks
+                        </p>
+                      </div>
+                    </button>
                   ))}
                 </div>
               </CardContent>
@@ -674,33 +840,79 @@ export function SectorAllocation() {
           </TabsContent>
 
           <TabsContent value="bar">
-            <Card>
+            <Card className="overflow-hidden">
               <CardContent className="pt-6">
-                <div className="h-[400px] w-full">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="font-semibold">Sector Comparison</h4>
+                    <p className="text-sm text-muted-foreground">Portfolio value by sector</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleAnimation}
+                    className="text-xs"
+                  >
+                    {chartAnimation ? '⏸️' : '▶️'} Animation
+                  </Button>
+                </div>
+                
+                <div className="h-[500px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                    <BarChart 
+                      data={enhancedChartData} 
+                      margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+                    >
+                      <defs>
+                        {enhancedChartData.map((entry, index) => (
+                          <linearGradient key={index} id={`barGradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={entry.fill} stopOpacity={0.9} />
+                            <stop offset="100%" stopColor={entry.fill} stopOpacity={0.6} />
+                          </linearGradient>
+                        ))}
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                       <XAxis 
                         dataKey="sector" 
                         angle={-45}
                         textAnchor="end"
                         height={100}
                         interval={0}
+                        tick={{ fontSize: 12 }}
                       />
-                      <YAxis />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#3b82f6" 
-                        name="Portfolio Value"
-                        radius={[4, 4, 0, 0]}
+                      <YAxis 
+                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                        tick={{ fontSize: 12 }}
                       />
+                      <Tooltip content={<EnhancedCustomTooltip />} />
+                                             <Bar 
+                         dataKey="value" 
+                         name="Portfolio Value"
+                         radius={[8, 8, 0, 0]}
+                         animationDuration={chartAnimation ? 1500 : 0}
+                         animationEasing="ease-out"
+                       >
+                        {enhancedChartData.map((entry, index) => (
+                          <Cell 
+                            key={`bar-cell-${index}`} 
+                            fill={`url(#barGradient-${index})`}
+                            stroke={entry.isSelected ? '#fff' : 'none'}
+                            strokeWidth={entry.isSelected ? 2 : 0}
+                            style={{
+                              opacity: entry.opacity,
+                              transition: 'all 0.3s ease'
+                            }}
+                          />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  Sector allocation by portfolio value - hover over bars for details
+                
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    💡 Click on bars to highlight sectors • Hover for detailed information
+                  </p>
                 </div>
               </CardContent>
             </Card>
