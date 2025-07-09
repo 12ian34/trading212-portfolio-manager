@@ -5,6 +5,7 @@ import {
   AlphaVantageOverviewSchema,
   ApiResponse 
 } from '@/lib/types'
+import { recordApiCall, canMakeApiRequest } from '@/lib/api-limits-service'
 
 // Rate limiting queue for Alpha Vantage API
 class RateLimitQueue {
@@ -178,6 +179,16 @@ class AlphaVantageApiClient {
       }
     }
 
+    // Check if we can make a request according to unified limits
+    if (!canMakeApiRequest('alphavantage')) {
+      return {
+        success: false,
+        data: null,
+        error: 'Alpha Vantage API rate limit exceeded. Please try again later.',
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     try {
       const response = await this.rateLimitQueue.add(() =>
         this.client.get('', {
@@ -188,21 +199,28 @@ class AlphaVantageApiClient {
         })
       )
 
+      // Record the API call as successful
+      recordApiCall('alphavantage', true)
+
       // Check for API error messages
       if (response.data?.['Error Message']) {
+        const errorMsg = `Alpha Vantage API Error: ${response.data['Error Message']}`
+        recordApiCall('alphavantage', false, errorMsg)
         return {
           success: false,
           data: null,
-          error: `Alpha Vantage API Error: ${response.data['Error Message']}`,
+          error: errorMsg,
           timestamp: new Date().toISOString(),
         }
       }
 
       if (response.data?.['Note']) {
+        const errorMsg = `Alpha Vantage API Note: ${response.data['Note']}`
+        recordApiCall('alphavantage', false, errorMsg)
         return {
           success: false,
           data: null,
-          error: `Alpha Vantage API Note: ${response.data['Note']}`,
+          error: errorMsg,
           timestamp: new Date().toISOString(),
         }
       }
@@ -219,12 +237,16 @@ class AlphaVantageApiClient {
       }
     } catch (error) {
       if (error instanceof AxiosError) {
-        return this.handleError(error)
+        const errorResult = this.handleError<AlphaVantageOverview>(error)
+        recordApiCall('alphavantage', false, errorResult.error || 'Unknown error')
+        return errorResult
       }
+      const errorMsg = `Failed to validate overview data for ${symbol}.`
+      recordApiCall('alphavantage', false, errorMsg)
       return {
         success: false,
         data: null,
-        error: `Failed to validate overview data for ${symbol}.`,
+        error: errorMsg,
         timestamp: new Date().toISOString(),
       }
     }

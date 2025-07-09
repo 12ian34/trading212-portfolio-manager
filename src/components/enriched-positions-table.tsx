@@ -20,6 +20,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { FilterPanel } from '@/components/filter-panel'
 import { useFilterSort } from '@/hooks/use-filter-sort'
 import { FilterablePosition } from '@/lib/filter-utils'
+import { useApiWarning, ApiActions } from '@/components/api-warning-dialog'
+import { ApiEnhancedButton, ApiUsageBadge } from '@/components/api-enhanced-button'
+import { EnrichmentHelp, DataFreshnessHelp } from '@/components/contextual-help'
 
 interface EnrichedPosition extends Trading212Position {
   // Alpha Vantage fundamental data
@@ -57,6 +60,9 @@ export function EnrichedPositionsTable() {
   const [isEnriching, setIsEnriching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [enrichmentStats, setEnrichmentStats] = useState<{ total: number, enriched: number } | null>(null)
+  
+  // API warning hook
+  const { showWarning, WarningDialog } = useApiWarning()
 
   // Convert enriched positions to filterable positions
   const filterablePositions = useMemo((): FilterablePosition[] => {
@@ -143,6 +149,19 @@ export function EnrichedPositionsTable() {
       setIsLoading(false)
       setIsEnriching(false)
     }
+  }
+
+  const handleRefreshWithWarning = () => {
+    // Get current positions count to estimate API calls
+    const currentPositionsCount = enrichedPositions.length || 10 // Default estimate
+    
+    showWarning(
+      ApiActions.enrichPositions(currentPositionsCount),
+      fetchAndEnrichPositions,
+      () => {
+        console.log('User cancelled enrichment')
+      }
+    )
   }
 
   useEffect(() => {
@@ -274,20 +293,27 @@ export function EnrichedPositionsTable() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Enhanced Portfolio Positions</CardTitle>
-              <CardDescription>
-                Trading212 positions enriched with fundamental data from Alpha Vantage
-              </CardDescription>
+            <div className="flex items-center gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <CardTitle>Enhanced Portfolio Positions</CardTitle>
+                  <EnrichmentHelp />
+                </div>
+                <CardDescription className="flex items-center gap-2">
+                  Trading212 positions enriched with fundamental data from Alpha Vantage
+                  <DataFreshnessHelp />
+                </CardDescription>
+              </div>
             </div>
           <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={isLoading || filteredPositions.length === 0}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isLoading || filteredPositions.length === 0}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Export Options</DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -299,17 +325,23 @@ export function EnrichedPositionsTable() {
                   <FileText className="h-4 w-4 mr-2" />
                   Download PDF Report
                 </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchAndEnrichPositions}
+                              </DropdownMenuContent>
+              </DropdownMenu>
+              <ApiUsageBadge 
+                apiAction={ApiActions.enrichPositions(enrichedPositions.length || 10)}
+                className="ml-1"
+              />
+            </div>
+              <ApiEnhancedButton
+              apiAction={ApiActions.enrichPositions(enrichedPositions.length || 10)}
+              onApiAwareClick={handleRefreshWithWarning}
               disabled={isLoading}
+              showUsageIndicator={true}
+              showRemainingCount={true}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               {isEnriching ? 'Enriching...' : 'Refresh'}
-            </Button>
+            </ApiEnhancedButton>
           </div>
         </div>
         
@@ -563,6 +595,7 @@ export function EnrichedPositionsTable() {
         )}
       </CardContent>
     </Card>
+    {WarningDialog}
   </div>
   )
 } 

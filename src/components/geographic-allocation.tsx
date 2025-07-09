@@ -22,6 +22,7 @@ import {
   Tooltip, 
   Legend 
 } from 'recharts'
+import { useApiWarning, ApiActions } from '@/components/api-warning-dialog'
 
 interface GeographicData {
   country: string
@@ -90,6 +91,9 @@ export function GeographicAllocation() {
   const [enrichmentStats, setEnrichmentStats] = useState<EnrichmentResponse['summary'] | null>(null)
   const [showMockData, setShowMockData] = useState(false)
   const [viewMode, setViewMode] = useState<'countries' | 'regions'>('regions')
+  
+  // API warning hook
+  const { showWarning, WarningDialog } = useApiWarning()
 
   // Map countries to regions
   const getRegion = (country: string): string => {
@@ -499,6 +503,19 @@ export function GeographicAllocation() {
     return null
   }
 
+  const handleRefreshWithWarning = async () => {
+    // Get positions from cache to estimate API calls
+    const positions = await trading212Cache.getPositions()
+    
+    showWarning(
+      ApiActions.analyzeSector(positions.map(p => p.ticker)), // Geographic analysis is similar to sector analysis
+      fetchGeographicData,
+      () => {
+        console.log('User cancelled geographic analysis')
+      }
+    )
+  }
+
   // Prepare chart data
   const regionChartData = regionData.map((region, index) => ({
     ...region,
@@ -538,7 +555,7 @@ export function GeographicAllocation() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchGeographicData}
+                onClick={handleRefreshWithWarning}
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -898,6 +915,7 @@ export function GeographicAllocation() {
           </CardContent>
         </Card>
       )}
+      {WarningDialog}
     </div>
   )
 } 

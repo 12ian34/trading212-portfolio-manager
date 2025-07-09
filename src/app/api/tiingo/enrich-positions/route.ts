@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { Trading212Position } from '@/lib/types'
 import { tiingoClient, TiingoFundamentals } from '@/lib/tiingo-client'
 import { tiingoCache } from '@/lib/tiingo-cache'
+import { recordApiCall, canMakeApiRequest } from '@/lib/api-limits-service'
 
 interface EnrichedPosition extends Trading212Position {
   // Tiingo fundamental data
@@ -57,6 +58,12 @@ function convertTicker(trading212Ticker: string): string {
 async function fetchFreshFundamentals(symbol: string): Promise<TiingoFundamentals | null> {
   resetHourlyCountIfNeeded()
   
+  // Check unified API limits first
+  if (!canMakeApiRequest('tiingo')) {
+    console.warn(`⚠️ Tiingo API limit reached via unified tracker. Skipping fresh fetch for ${symbol}`)
+    return null
+  }
+  
   if (hourlyRequestCount >= MAX_HOURLY_REQUESTS) {
     console.warn(`⚠️ Hourly Tiingo API limit reached (${hourlyRequestCount}/${MAX_HOURLY_REQUESTS}). Skipping fresh fetch for ${symbol}`)
     return null
@@ -67,6 +74,9 @@ async function fetchFreshFundamentals(symbol: string): Promise<TiingoFundamental
     
     const data = await tiingoClient.getCompanyOverview(symbol)
     hourlyRequestCount++
+    
+    // Record the API call
+    recordApiCall('tiingo', true)
 
     if (data) {
       // Cache the successful response
@@ -80,6 +90,7 @@ async function fetchFreshFundamentals(symbol: string): Promise<TiingoFundamental
     }
   } catch (error) {
     console.error(`❌ Error fetching ${symbol}:`, error)
+    recordApiCall('tiingo', false, error instanceof Error ? error.message : 'Unknown error')
     return null
   }
 }

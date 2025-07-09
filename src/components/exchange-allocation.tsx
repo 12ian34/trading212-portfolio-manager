@@ -21,6 +21,7 @@ import {
   CartesianGrid, 
   Tooltip 
 } from 'recharts'
+import { useApiWarning, ApiActions } from '@/components/api-warning-dialog'
 
 interface ExchangeData {
   exchange: string
@@ -91,6 +92,9 @@ export function ExchangeAllocation() {
   const [enrichmentStats, setEnrichmentStats] = useState<EnrichmentResponse['summary'] | null>(null)
   const [showMockData, setShowMockData] = useState(false)
   const [viewMode, setViewMode] = useState<'exchanges' | 'markets'>('exchanges')
+  
+  // API warning hook
+  const { showWarning, WarningDialog } = useApiWarning()
 
   // Get exchange information and classification
   const getExchangeInfo = (exchange: string, country: string) => {
@@ -559,6 +563,19 @@ export function ExchangeAllocation() {
     return { score: 'Poor', color: 'text-red-600 dark:text-red-400' }
   }
 
+  const handleRefreshWithWarning = async () => {
+    // Get positions from cache to estimate API calls
+    const positions = await trading212Cache.getPositions()
+    
+    showWarning(
+      ApiActions.analyzeSector(positions.map(p => p.ticker)), // Exchange analysis is similar to sector analysis
+      fetchExchangeData,
+      () => {
+        console.log('User cancelled exchange analysis')
+      }
+    )
+  }
+
   // Chart colors
   const CHART_COLORS = [
     '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -599,7 +616,7 @@ export function ExchangeAllocation() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchExchangeData}
+                onClick={handleRefreshWithWarning}
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -952,6 +969,7 @@ export function ExchangeAllocation() {
           </CardContent>
         </Card>
       )}
+      {WarningDialog}
     </div>
   )
 } 

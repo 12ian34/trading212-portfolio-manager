@@ -14,6 +14,9 @@ import {
   SectorAllocation as SectorAllocationExport
 } from '@/lib/export-utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useApiWarning, ApiActions } from '@/components/api-warning-dialog'
+import { ApiEnhancedButton } from '@/components/api-enhanced-button'
+import { SectorAnalysisHelp, ApiLimitsHelp } from '@/components/contextual-help'
 import { 
   PieChart as RechartsPieChart, 
   Pie, 
@@ -84,6 +87,9 @@ export function SectorAllocation() {
   const [showMockData, setShowMockData] = useState(false)
   const [selectedSector, setSelectedSector] = useState<string | null>(null)
   const [chartAnimation, setChartAnimation] = useState(true)
+  
+  // API warning hook
+  const { showWarning, WarningDialog } = useApiWarning()
 
   const fetchSectorData = useCallback(async () => {
     setIsLoading(true)
@@ -433,6 +439,19 @@ export function SectorAllocation() {
     setChartAnimation(!chartAnimation)
   }
 
+  const handleRefreshWithWarning = async () => {
+    // Get positions from cache to estimate API calls
+    const positions = await trading212Cache.getPositions()
+    
+    showWarning(
+      ApiActions.analyzeSector(positions.map(p => p.ticker)),
+      fetchSectorData,
+      () => {
+        console.log('User cancelled sector analysis')
+      }
+    )
+  }
+
   const handleExportSectorCSV = () => {
     const exportData: SectorAllocationExport[] = sectorData.map(sector => ({
       sector: sector.sector,
@@ -471,9 +490,11 @@ export function SectorAllocation() {
               <CardTitle className="flex items-center gap-2">
                 <PieChart className="h-5 w-5" />
                 Sector Allocation Analysis
+                <SectorAnalysisHelp />
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="flex items-center gap-2">
                 Portfolio diversification across industry sectors
+                <ApiLimitsHelp />
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -502,15 +523,16 @@ export function SectorAllocation() {
                 <Zap className="h-4 w-4 mr-2" />
                 Demo Data
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchSectorData}
+              <ApiEnhancedButton
+                apiAction={ApiActions.analyzeSector(sectorData.map(s => s.sector) || [''])}
+                onApiAwareClick={handleRefreshWithWarning}
                 disabled={isLoading}
+                showUsageIndicator={true}
+                showRemainingCount={true}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
-              </Button>
+              </ApiEnhancedButton>
             </div>
           </div>
         </CardHeader>
@@ -973,6 +995,7 @@ export function SectorAllocation() {
           </CardContent>
         </Card>
       )}
+      {WarningDialog}
     </div>
   )
 } 

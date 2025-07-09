@@ -7,6 +7,7 @@ import {
   Trading212AccountSchema,
   ApiResponse 
 } from '@/lib/types'
+import { recordApiCall } from '@/lib/api-limits-service'
 
 class Trading212ApiClient {
   private client: AxiosInstance
@@ -91,6 +92,9 @@ class Trading212ApiClient {
        const response = await this.client.get('/equity/account/cash')
        const validatedData = Trading212AccountSchema.parse(response.data)
        
+       // Record successful API call
+       recordApiCall('trading212', true)
+       
        return {
          success: true,
          data: validatedData,
@@ -98,12 +102,16 @@ class Trading212ApiClient {
        }
      } catch (error) {
        if (error instanceof AxiosError) {
-         return this.handleError(error) as ApiResponse<Trading212Account>
+         const errorResult = this.handleError(error) as ApiResponse<Trading212Account>
+         recordApiCall('trading212', false, errorResult.error || 'Unknown error')
+         return errorResult
        }
+       const errorMsg = 'Failed to validate account data.'
+       recordApiCall('trading212', false, errorMsg)
        return {
          success: false,
          data: null,
-         error: 'Failed to validate account data.',
+         error: errorMsg,
          timestamp: new Date().toISOString(),
        }
      }
@@ -119,6 +127,9 @@ class Trading212ApiClient {
         Trading212PositionSchema.parse(position)
       )
       
+      // Record successful API call
+      recordApiCall('trading212', true)
+      
       return {
         success: true,
         data: validatedData,
@@ -126,12 +137,16 @@ class Trading212ApiClient {
       }
     } catch (error) {
       if (error instanceof AxiosError) {
-        return this.handleError(error)
+        const errorResult = this.handleError<Trading212Position[]>(error)
+        recordApiCall('trading212', false, errorResult.error || 'Unknown error')
+        return errorResult
       }
+      const errorMsg = 'Failed to validate positions data.'
+      recordApiCall('trading212', false, errorMsg)
       return {
         success: false,
         data: null,
-        error: 'Failed to validate positions data.',
+        error: errorMsg,
         timestamp: new Date().toISOString(),
       }
     }

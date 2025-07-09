@@ -1,5 +1,5 @@
 import { trading212Client } from './api/trading212'
-import { alphaVantageClient } from './api/alphavantage'
+import { financialDataService, type CompanyFundamentals } from './financial-data-service'
 import { 
   EnhancedPosition, 
   PortfolioAnalysis, 
@@ -7,8 +7,7 @@ import {
   SectorAllocation,
   RegionAllocation,
   ApiResponse,
-  Trading212Position,
-  AlphaVantageOverview
+  Trading212Position
 } from './types'
 
 export class PortfolioService {
@@ -34,14 +33,14 @@ export class PortfolioService {
       // Get symbols for Alpha Vantage lookup
       const symbols = positions.map(p => p.ticker)
       
-      // Get Alpha Vantage fundamentals
-      const avResponse = await alphaVantageClient.getMultipleOverviews(symbols)
+      // Get fundamentals from unified financial data service (with fallback logic)
+      const fundamentalsResponse = await financialDataService.getMultipleFundamentals(symbols)
       
-      if (!avResponse.success) {
-        console.warn('Alpha Vantage data unavailable, using Trading212 data only')
+      if (!fundamentalsResponse.success) {
+        console.warn('Financial data unavailable, using Trading212 data only')
       }
 
-      const fundamentals = avResponse.data || {}
+      const fundamentals = fundamentalsResponse.data || {}
       
       // Combine data to create enhanced positions
       const enhancedPositions: EnhancedPosition[] = positions.map(position => {
@@ -62,18 +61,18 @@ export class PortfolioService {
           pplPercent,
           initialFillDate: position.initialFillDate,
           
-          // Alpha Vantage fundamentals (with fallbacks)
-          companyName: fundamental?.Name || position.ticker,
-          sector: fundamental?.Sector || 'Unknown',
-          industry: fundamental?.Industry || 'Unknown',
-          country: fundamental?.Country || 'Unknown',
-          exchange: fundamental?.Exchange || 'Unknown',
-          marketCap: fundamental?.MarketCapitalization ? parseFloat(fundamental.MarketCapitalization) : undefined,
-          peRatio: fundamental?.PERatio ? parseFloat(fundamental.PERatio) : undefined,
-          eps: fundamental?.EPS ? parseFloat(fundamental.EPS) : undefined,
-          dividendYield: fundamental?.DividendYield ? parseFloat(fundamental.DividendYield) : undefined,
-          bookValue: fundamental?.BookValue ? parseFloat(fundamental.BookValue) : undefined,
-          beta: fundamental?.Beta ? parseFloat(fundamental.Beta) : undefined,
+          // Financial data from unified service (with fallbacks)
+          companyName: fundamental?.name || position.ticker,
+          sector: fundamental?.sector || 'Unknown',
+          industry: fundamental?.industry || 'Unknown',
+          country: fundamental?.country || 'Unknown',
+          exchange: fundamental?.exchange || 'Unknown',
+          marketCap: fundamental?.marketCap,
+          peRatio: fundamental?.peRatio,
+          eps: fundamental?.eps,
+          dividendYield: fundamental?.dividendYield,
+          bookValue: fundamental?.bookValue,
+          beta: fundamental?.beta,
           
           // Calculated metrics
           weight: 0, // Will be calculated below
@@ -123,20 +122,20 @@ export class PortfolioService {
   /**
    * Calculate risk score for a position
    */
-  private calculateRiskScore(position: Trading212Position, fundamental: AlphaVantageOverview | undefined): number {
+  private calculateRiskScore(position: Trading212Position, fundamental: CompanyFundamentals | undefined): number {
     let score = 50 // Base score
     
     // Adjust based on volatility (beta)
-    if (fundamental?.Beta) {
-      const beta = parseFloat(fundamental.Beta)
+    if (fundamental?.beta) {
+      const beta = fundamental.beta
       if (beta > 1.5) score += 20
       else if (beta > 1.2) score += 10
       else if (beta < 0.8) score -= 10
     }
     
     // Adjust based on P/E ratio
-    if (fundamental?.PERatio) {
-      const pe = parseFloat(fundamental.PERatio)
+    if (fundamental?.peRatio) {
+      const pe = fundamental.peRatio
       if (pe > 30) score += 15
       else if (pe > 20) score += 5
       else if (pe < 10) score -= 5
@@ -288,15 +287,15 @@ export class PortfolioService {
   /**
    * Test API connections
    */
-  async testConnections(): Promise<{ trading212: boolean; alphaVantage: boolean }> {
-    const [t212Test, avTest] = await Promise.all([
+  async testConnections(): Promise<{ trading212: boolean; financialData: boolean }> {
+    const [t212Test, fdTest] = await Promise.all([
       trading212Client.testConnection(),
-      alphaVantageClient.testConnection(),
+      financialDataService.getFundamentals('AAPL'), // Test with a common symbol
     ])
     
     return {
       trading212: t212Test.success && Boolean(t212Test.data),
-      alphaVantage: avTest.success && Boolean(avTest.data),
+      financialData: fdTest.success && Boolean(fdTest.data),
     }
   }
 }

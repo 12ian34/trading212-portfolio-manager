@@ -73,6 +73,46 @@ const PortfolioOverviewWidgets = dynamic(
   }
 );
 
+const ApiStatusDashboard = dynamic(
+  () => import("@/components/api-status-dashboard").then(mod => ({ default: mod.ApiStatusDashboard })),
+  { 
+    loading: () => <div className="text-center">Loading API status...</div>,
+    ssr: false
+  }
+);
+
+const ApiIndicatorsDemo = dynamic(
+  () => import("@/components/api-indicators-demo").then(mod => ({ default: mod.ApiIndicatorsDemo })),
+  { 
+    loading: () => <div className="text-center">Loading API indicators demo...</div>,
+    ssr: false
+  }
+);
+
+const GracefulDegradationDemo = dynamic(
+  () => import("@/components/graceful-degradation-demo").then(mod => ({ default: mod.GracefulDegradationDemo })),
+  { 
+    loading: () => <div className="text-center">Loading graceful degradation demo...</div>,
+    ssr: false
+  }
+);
+
+const ApiLimitsHelp = dynamic(
+  () => import("@/components/api-limits-help").then(mod => ({ default: mod.ApiLimitsHelp })),
+  { 
+    loading: () => <div className="text-center">Loading API limits help...</div>,
+    ssr: false
+  }
+);
+
+const ContextualHelpDemo = dynamic(
+  () => import("@/components/contextual-help-demo").then(mod => ({ default: mod.ContextualHelpDemo })),
+  { 
+    loading: () => <div className="text-center">Loading contextual help demo...</div>,
+    ssr: false
+  }
+);
+
 export default function Home() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -196,6 +236,36 @@ export default function Home() {
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-center">Portfolio Status</h2>
           <PortfolioStatus />
+        </div>
+
+        {/* API Status Dashboard */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center">API Status Monitor</h2>
+          <ApiStatusDashboard showTestButtons={true} />
+        </div>
+
+        {/* API Indicators Demo */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center">API Usage Indicators</h2>
+          <ApiIndicatorsDemo />
+        </div>
+
+        {/* Graceful Degradation Demo */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center">Graceful Degradation</h2>
+          <GracefulDegradationDemo />
+        </div>
+
+        {/* API Limits Help */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center">API Limits Help & Education</h2>
+          <ApiLimitsHelp />
+        </div>
+
+        {/* Contextual Help Demo */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center">Contextual Help System</h2>
+          <ContextualHelpDemo />
         </div>
 
         {/* Enhanced Portfolio Overview Widgets */}
