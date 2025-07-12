@@ -22,7 +22,7 @@ import { useFilterSort } from '@/hooks/use-filter-sort'
 import { FilterablePosition } from '@/lib/filter-utils'
 import { useApiWarning, ApiActions } from '@/components/api-warning-dialog'
 import { ApiEnhancedButton, ApiUsageBadge } from '@/components/api-enhanced-button'
-import { EnrichmentHelp, DataFreshnessHelp } from '@/components/contextual-help'
+
 
 interface EnrichedPosition extends Trading212Position {
   // Alpha Vantage fundamental data
@@ -297,11 +297,9 @@ export function EnrichedPositionsTable() {
               <div>
                 <div className="flex items-center gap-2">
                   <CardTitle>Enhanced Portfolio Positions</CardTitle>
-                  <EnrichmentHelp />
                 </div>
-                <CardDescription className="flex items-center gap-2">
+                <CardDescription>
                   Trading212 positions enriched with fundamental data from Alpha Vantage
-                  <DataFreshnessHelp />
                 </CardDescription>
               </div>
             </div>

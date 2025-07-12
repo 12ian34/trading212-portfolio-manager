@@ -16,7 +16,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useApiWarning, ApiActions } from '@/components/api-warning-dialog'
 import { ApiEnhancedButton } from '@/components/api-enhanced-button'
-import { SectorAnalysisHelp, ApiLimitsHelp } from '@/components/contextual-help'
+
 import { 
   PieChart as RechartsPieChart, 
   Pie, 
@@ -490,11 +490,9 @@ export function SectorAllocation() {
               <CardTitle className="flex items-center gap-2">
                 <PieChart className="h-5 w-5" />
                 Sector Allocation Analysis
-                <SectorAnalysisHelp />
               </CardTitle>
-              <CardDescription className="flex items-center gap-2">
+              <CardDescription>
                 Portfolio diversification across industry sectors
-                <ApiLimitsHelp />
               </CardDescription>
             </div>
             <div className="flex gap-2">

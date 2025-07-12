@@ -97,21 +97,7 @@ const GracefulDegradationDemo = dynamic(
   }
 );
 
-const ApiLimitsHelp = dynamic(
-  () => import("@/components/api-limits-help").then(mod => ({ default: mod.ApiLimitsHelp })),
-  { 
-    loading: () => <div className="text-center">Loading API limits help...</div>,
-    ssr: false
-  }
-);
 
-const ContextualHelpDemo = dynamic(
-  () => import("@/components/contextual-help-demo").then(mod => ({ default: mod.ContextualHelpDemo })),
-  { 
-    loading: () => <div className="text-center">Loading contextual help demo...</div>,
-    ssr: false
-  }
-);
 
 export default function Home() {
   const [isConnecting, setIsConnecting] = useState(false);
@@ -256,17 +242,7 @@ export default function Home() {
           <GracefulDegradationDemo />
         </div>
 
-        {/* API Limits Help */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-center">API Limits Help & Education</h2>
-          <ApiLimitsHelp />
-        </div>
 
-        {/* Contextual Help Demo */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-center">Contextual Help System</h2>
-          <ContextualHelpDemo />
-        </div>
 
         {/* Enhanced Portfolio Overview Widgets */}
         <div id="demo-content" className="space-y-6">
