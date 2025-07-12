@@ -113,10 +113,13 @@ export default function Home() {
         return;
       }
 
-      // Calculate basic metrics from positions
-      const totalValue = positions.reduce((sum, pos) => sum + (pos.currentPrice * pos.quantity), 0);
-      const totalPnL = positions.reduce((sum, pos) => sum + pos.ppl, 0);
-      const dayChangePercent = totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
+      // Get account data for accurate portfolio totals
+      // Trading212 handles all currency conversions internally
+      const accountData = await trading212Cache.getAccount();
+      const totalValue = accountData.total || 0;
+      const totalPnL = accountData.ppl || 0;
+      const investedAmount = accountData.invested || 0;
+      const dayChangePercent = investedAmount > 0 ? (totalPnL / investedAmount) * 100 : 0;
       
       // Calculate performance grade based on overall P&L
       const getPerformanceGrade = (pnlPercent: number) => {
