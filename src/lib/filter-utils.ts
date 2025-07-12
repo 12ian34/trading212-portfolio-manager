@@ -368,7 +368,7 @@ export const defaultPresets: FilterPreset[] = [
   {
     id: 'large_positions',
     name: 'Large Positions',
-    description: 'Show positions worth more than $1000',
+    description: 'Show positions worth more than £1000',
     criteria: {
       minValue: 1000,
     },
@@ -431,9 +431,9 @@ export function updateSorts(state: FilterSortState, sorts: SortConfig[]): Filter
 export function formatFilterValue(value: number, type: 'currency' | 'percentage' | 'number'): string {
   switch (type) {
     case 'currency':
-      return new Intl.NumberFormat('en-US', {
+      return new Intl.NumberFormat('en-GB', {
         style: 'currency',
-        currency: 'USD',
+        currency: 'GBP',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }).format(value)

@@ -74,9 +74,9 @@ export function PortfolioOverviewWidgets({
   const data = metrics || demoMetrics
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-GB', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'GBP',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value)
@@ -186,12 +186,12 @@ export function PortfolioOverviewWidgets({
         </CardContent>
       </Card>
 
-      {/* Period Returns */}
+      {/* Portfolio Performance */}
       <Card className="hover:shadow-lg transition-shadow duration-300">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Period Returns
+              Portfolio Performance
             </CardTitle>
             <BarChart3 className="h-8 w-8 text-purple-600" />
           </div>
@@ -199,7 +199,26 @@ export function PortfolioOverviewWidgets({
         <CardContent className="space-y-3">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Today</span>
+              <span className="text-sm text-muted-foreground">Total Value</span>
+              <div className="flex items-center gap-1">
+                <span className="font-medium text-lg">
+                  {formatCurrency(data.totalValue)}
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">All-Time P&L</span>
+              <div className={`flex items-center gap-1 ${getChangeColor(data.dayChange)}`}>
+                {getChangeIcon(data.dayChange)}
+                <span className="font-medium">
+                  {formatCurrency(data.dayChange)}
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">All-Time Return</span>
               <div className={`flex items-center gap-1 ${getChangeColor(data.dayChangePercent)}`}>
                 {getChangeIcon(data.dayChangePercent)}
                 <span className="font-medium">
@@ -209,32 +228,11 @@ export function PortfolioOverviewWidgets({
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">This Week</span>
-              <div className={`flex items-center gap-1 ${getChangeColor(data.weekChange)}`}>
-                {getChangeIcon(data.weekChange)}
-                <span className="font-medium">
-                  {formatCurrency(data.weekChange)}
-                </span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">This Month</span>
-              <div className={`flex items-center gap-1 ${getChangeColor(data.monthChange)}`}>
-                {getChangeIcon(data.monthChange)}
-                <span className="font-medium">
-                  {formatCurrency(data.monthChange)}
-                </span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">This Year</span>
-              <div className={`flex items-center gap-1 ${getChangeColor(data.yearChange)}`}>
-                {getChangeIcon(data.yearChange)}
-                <span className="font-medium">
-                  {formatCurrency(data.yearChange)}
-                </span>
+              <span className="text-sm text-muted-foreground">Portfolio Grade</span>
+              <div className="flex items-center gap-1">
+                <Badge className={`${getGradeColor(data.performanceGrade)}`}>
+                  {data.performanceGrade}
+                </Badge>
               </div>
             </div>
           </div>
