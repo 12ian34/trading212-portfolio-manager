@@ -22,8 +22,6 @@ import {
   Info
 } from 'lucide-react'
 import { 
-  getApiProviderStatus, 
-  getAllApiStatus, 
   type ApiLimitStatus,
   type ApiLimitsSummary 
 } from '@/lib/api-limits-service'

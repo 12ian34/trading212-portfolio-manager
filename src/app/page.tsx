@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortfolioStatus } from "@/components/portfolio-status";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { XCircle, Loader2, DollarSign, PieChart, Activity, Globe, Building2, AlertTriangle, Zap } from "lucide-react";
 import { trading212Cache } from "@/lib/trading212-cache";
 import { 
@@ -188,7 +188,7 @@ export default function Home() {
     }
   };
 
-  const handleConnectTrading212 = async () => {
+  const handleConnectTrading212 = useCallback(async () => {
     setIsConnecting(true);
     setConnectionStatus('idle');
     setConnectionMessage('');
@@ -208,12 +208,12 @@ export default function Home() {
     } finally {
       setIsConnecting(false);
     }
-  };
+  }, []);
 
   // Automatically connect on component mount
   useEffect(() => {
     handleConnectTrading212();
-  }, []);
+  }, [handleConnectTrading212]);
 
 
 
