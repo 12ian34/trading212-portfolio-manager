@@ -174,7 +174,7 @@ export class ApiFallbackService {
                 : `Successfully completed ${operation} using ${provider}`
             }
           } catch (error) {
-            console.error(`${provider} failed for ${operation}:`, error)
+            console.error('%s failed for %s:', provider, operation, error)
             // Continue to cache fallback
           }
         }
@@ -194,7 +194,7 @@ export class ApiFallbackService {
               userMessage: `Using cached data for ${operation} - APIs are limited or unavailable`
             }
           } catch (error) {
-            console.error(`Cache fallback failed for ${operation}:`, error)
+            console.error('Cache fallback failed for %s:', operation, error)
           }
         }
 

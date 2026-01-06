@@ -89,7 +89,7 @@ async function fetchFreshFundamentals(symbol: string): Promise<TiingoFundamental
       return null
     }
   } catch (error) {
-    console.error(`❌ Error fetching ${symbol}:`, error)
+    console.error('❌ Error fetching %s:', symbol, error)
     recordApiCall('tiingo', false, error instanceof Error ? error.message : 'Unknown error')
     return null
   }

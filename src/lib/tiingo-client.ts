@@ -94,7 +94,7 @@ class TiingoClient {
       const data = await response.json()
       return data
     } catch (error) {
-      console.error(`Error fetching Tiingo metadata for ${ticker}:`, error)
+      console.error('Error fetching Tiingo metadata for %s:', ticker, error)
       return null
     }
   }
@@ -122,7 +122,7 @@ class TiingoClient {
       const data = await response.json()
       return data
     } catch (error) {
-      console.error(`Error fetching Tiingo fundamentals meta for ${ticker}:`, error)
+      console.error('Error fetching Tiingo fundamentals meta for %s:', ticker, error)
       return null
     }
   }
@@ -150,7 +150,7 @@ class TiingoClient {
       const data = await response.json()
       return data
     } catch (error) {
-      console.error(`Error fetching Tiingo fundamentals statements for ${ticker}:`, error)
+      console.error('Error fetching Tiingo fundamentals statements for %s:', ticker, error)
       return null
     }
   }
@@ -184,7 +184,7 @@ class TiingoClient {
       
       return data
     } catch (error) {
-      console.error(`Error fetching Tiingo fundamentals for ${ticker}:`, error)
+      console.error('Error fetching Tiingo fundamentals for %s:', ticker, error)
       return null
     }
   }
@@ -260,7 +260,7 @@ class TiingoClient {
 
       return result
     } catch (error) {
-      console.error(`Error fetching Tiingo company overview for ${ticker}:`, error)
+      console.error('Error fetching Tiingo company overview for %s:', ticker, error)
       return null
     }
   }

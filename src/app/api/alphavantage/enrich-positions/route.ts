@@ -154,7 +154,7 @@ async function fetchStockOverview(symbol: string): Promise<AlphaVantageOverview 
         console.log(`✅ Successfully fetched data for ${symbol}`)
         resolve(data)
       } catch (error) {
-        console.error(`❌ Error fetching ${symbol}:`, error)
+        console.error('❌ Error fetching %s:', symbol, error)
         reject(error)
       }
     }
@@ -239,7 +239,7 @@ export async function POST(request: Request) {
         if (error instanceof Error && error.message.includes('not supported')) {
           console.log(`⏭️ [${processedCount + 1}/${positions.length}] Skipped ${position.ticker}: ${error.message}`)
         } else {
-          console.error(`❌ [${processedCount + 1}/${positions.length}] Failed to enrich ${position.ticker}:`, error)
+          console.error('❌ [%d/%d] Failed to enrich %s:', processedCount + 1, positions.length, position.ticker, error)
         }
         
         // Add position without enrichment

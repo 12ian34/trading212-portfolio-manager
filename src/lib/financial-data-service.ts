@@ -196,7 +196,7 @@ class AlphaVantageProvider implements FinancialDataProvider {
       
       return this.normalizeAlphaVantageData(data)
     } catch (error) {
-      console.error(`Alpha Vantage error for ${symbol}:`, error)
+      console.error('Alpha Vantage error for %s:', symbol, error)
       return null
     }
   }
@@ -319,7 +319,7 @@ class TiingoProvider implements FinancialDataProvider {
       
       return this.normalizeTiingoData(metaData, fundamentalsData)
     } catch (error) {
-      console.error(`Tiingo error for ${symbol}:`, error)
+      console.error('Tiingo error for %s:', symbol, error)
       return null
     }
   }
@@ -467,7 +467,7 @@ export class FinancialDataService {
           }
         }
       } catch (error) {
-        console.warn(`${provider.name} failed for ${symbol}:`, error)
+        console.warn('%s failed for %s:', provider.name, symbol, error)
         continue
       }
     }
@@ -519,7 +519,7 @@ export class FinancialDataService {
           }
         }
       } catch (error) {
-        console.warn(`${provider.name} batch failed:`, error)
+        console.warn('%s batch failed:', provider.name, error)
         continue
       }
     }

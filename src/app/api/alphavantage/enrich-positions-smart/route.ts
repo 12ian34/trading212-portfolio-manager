@@ -95,7 +95,7 @@ async function fetchFreshFundamentals(symbol: string): Promise<AlphaVantageOverv
     console.log(`✅ Successfully fetched and cached ${symbol}`)
     return data
   } catch (error) {
-    console.error(`❌ Error fetching ${symbol}:`, error)
+    console.error('❌ Error fetching %s:', symbol, error)
     return null
   }
 }
