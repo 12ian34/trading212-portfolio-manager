@@ -1,10 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## Common Development Commands
 
-### Development Server
 ```bash
 npm run dev          # Start development server with Turbopack
 npm run build        # Build for production
@@ -12,100 +11,107 @@ npm run start        # Start production server
 npm run lint         # Run ESLint analysis
 ```
 
-### Bundle Analysis
-```bash
-npm run analyze      # Analyze bundle size
-npm run build:analyze # Alternative bundle analysis
-```
-
 ## Architecture Overview
 
-This is a Next.js 15 application that provides comprehensive portfolio analysis for Trading212 users. The app integrates with multiple financial data providers to enhance basic portfolio data with detailed analytics.
+Portfolio dashboard for Trading212 users. Fetches positions from Trading212, enriches with sector data from OpenFIGI (all stocks) and fundamentals from Tiingo (US stocks only).
 
-### Core Services Architecture
+### Data Flow
 
-**Data Flow:**
-1. **Trading212 API** → Base portfolio positions
-2. **Financial Data Service** → Enhanced fundamentals (Alpha Vantage + Tiingo fallback)
-3. **Portfolio Service** → Analysis engine and metrics calculation
-4. **API Limits Service** → Rate limiting and intelligent fallbacks
+```
+Trading212 API  →  /api/portfolio         →  Positions + Account
+OpenFIGI API    →  /api/enrich/sectors     →  Sector/industry for ALL stocks (via ISIN)
+Tiingo API      →  /api/enrich/fundamentals →  P/E, marketCap etc. for US stocks only
+```
 
-### Key Services
+Client loads positions first, then triggers enrichment in parallel. TanStack Query handles caching.
 
-- **`src/lib/portfolio-service.ts`** - Core portfolio analysis engine that combines Trading212 positions with financial data
-- **`src/lib/api-limits-service.ts`** - Unified API rate limiting across all providers (Alpha Vantage: 25/day, Tiingo: 1000/day)
-- **`src/lib/financial-data-service.ts`** - Centralized financial data aggregation with smart fallbacks
-- **`src/lib/api-fallback-service.ts`** - Intelligent provider switching and graceful degradation
+### API Routes (3 total)
 
-### Data Sources & Limits
+- **`src/app/api/portfolio/route.ts`** - Fetches T212 positions + account via Basic auth. Normalizes nested response into flat `Position` type. Sorts by value descending.
+- **`src/app/api/enrich/sectors/route.ts`** - POSTs array of ISINs to OpenFIGI mapping API. Returns `Record<isin, SectorData>`. Batches in groups of 100. Works for all stocks globally.
+- **`src/app/api/enrich/fundamentals/route.ts`** - POSTs array of US tickers to Tiingo. Fetches fundamentals/meta (sector, industry, location) + fundamentals/daily (P/E, marketCap, P/B). Returns `Record<ticker, FundamentalsData>`.
 
-- **Alpha Vantage**: 25 calls/day, 5/minute (very restrictive)
-- **Tiingo**: 1000 calls/day, 50/hour (more generous)
-- **Trading212**: Portfolio positions (rate limited but no explicit limits)
+### Hooks (1 file, 3 hooks)
 
-### Component Structure
+- **`src/hooks/use-portfolio.ts`** - `usePortfolio()`, `useSectorEnrichment(isins)`, `useFundamentals(tickers)`. Each is a `useQuery` wrapper. Progressive enrichment: sectors enabled when positions load, fundamentals enabled when US tickers are extracted.
 
-- **`src/components/`** - UI components built with Shadcn/UI and Radix
-- **`src/app/api/`** - Next.js API routes for backend integration
-- **`src/hooks/`** - Custom React hooks (`use-portfolio.ts`, `use-filter-sort.ts`)
-- **`src/lib/types.ts`** - Comprehensive TypeScript types with Zod validation
+### Components
 
-### Technical Stack
+- **`src/components/portfolio-overview.tsx`** - 4 summary cards: total value, unrealized P&L, total cost, position count.
+- **`src/components/positions-table.tsx`** - Sortable/filterable table with search. Shows name, region, sector, value, P&L, weight, P/E, market cap.
+- **`src/components/sector-chart.tsx`** - Donut chart of sector allocation from OpenFIGI/Tiingo data.
+- **`src/components/region-chart.tsx`** - Donut chart of region allocation derived from T212 ticker suffixes.
+- **`src/components/providers.tsx`** - QueryClientProvider + ThemeProvider wrapper.
+- **`src/components/theme-toggle.tsx`** / **`theme-provider.tsx`** - Dark/light mode toggle.
+- **`src/components/ui/`** - 12 vendored Shadcn/UI components.
 
-- **Next.js 15** with App Router
-- **React 19** with modern hooks
-- **TypeScript 5** with strict configuration
-- **Tailwind CSS 4** for styling
-- **Shadcn/UI** component library
-- **TanStack Query** for server state management
-- **Zod** for schema validation
+### Lib
+
+- **`src/lib/types.ts`** - All types, Zod schemas for T212 API responses, helper functions (`deriveRegion`, `toPlainSymbol`, `isUSStock`).
+- **`src/lib/env.ts`** - Zod-validated env vars (server-side only).
+- **`src/lib/query-client.ts`** - TanStack Query client config.
+- **`src/lib/utils.ts`** - Shadcn `cn()` helper.
+
+## Data Sources
+
+### Trading212 API (v0)
+
+- **Auth**: Basic auth - `base64(API_KEY:API_SECRET)` in Authorization header
+- **Base URL**: `https://live.trading212.com/api/v0`
+- **Positions**: `GET /equity/positions` - returns nested objects with `instrument`, `walletImpact`
+- **Account**: `GET /equity/account/summary` - returns `totalValue`, `cash`, `investments`
+- **Docs**: https://docs.trading212.com/api
+
+**Ticker format**: `{SYMBOL}{exchange_suffix}_{MARKET}_EQ`
+- US: `AAPL_US_EQ`, `BRK_B_US_EQ`
+- UK (LSE): `JUPl_EQ`, `BPl_EQ` (trailing `l`)
+- NL (Amsterdam): `ASMLa_EQ` (trailing `a`)
+- DE (Frankfurt): `RHMd_EQ` (trailing `d`)
+- FR (Paris): `AIRp_EQ` (trailing `p`)
+
+### Tiingo (Power tier - $30/month)
+
+- **Limits**: 100,000 calls/day, 10,000/hour
+- **Coverage**: US stocks only (no LSE/Euronext/Frankfurt)
+- **Fundamentals meta** (`GET /tiingo/fundamentals/meta?tickers=X`): sector, industry, location, SIC codes
+- **Fundamentals daily** (`GET /tiingo/fundamentals/{ticker}/daily`): marketCap, peRatio, pbRatio, enterpriseVal, PEG
+- **Coverage tested**: 90/131 portfolio positions found (all US stocks). 41 UK/EU missing.
+
+### OpenFIGI (free, unlimited)
+
+- **Auth**: None required (25 req/min unauthenticated, 100 with free API key)
+- **Endpoint**: `POST https://api.openfigi.com/v3/mapping`
+- **Input**: Array of `{idType: "ID_ISIN", idValue: "US0378331005"}`
+- **Returns**: marketSector, securityType, exchCode, name, FIGI
+- **Coverage**: Global - works for all stocks via ISIN
 
 ## Environment Variables
 
-Required for development:
 ```env
-TRADING212_API_KEY=your_trading212_api_key
-ALPHAVANTAGE_API_KEY=your_alphavantage_api_key
-TIINGO_API_KEY=your_tiingo_api_key
+TRADING212_API_KEY=your_api_key
+TRADING212_API_SECRET=your_api_secret
+TIINGO_API_KEY=your_tiingo_key
 ```
 
-## Development Guidelines
+See `.env.example`. Validated by `src/lib/env.ts` using Zod (server-side only).
 
-### API Usage Patterns
-- Always use the `apiLimitsTracker` before making API calls
-- Prefer cached data when available
-- Use fallback providers (Tiingo when Alpha Vantage is exhausted)
-- Check `src/lib/api-limits-service.ts` for rate limiting logic
+## Technical Stack
 
-### Data Enhancement Flow
-1. Fetch Trading212 positions
-2. Extract symbols for financial data lookup
-3. Query financial data service (with fallbacks)
-4. Combine and calculate portfolio metrics
-5. Generate sector/region allocations
+- **Next.js 15** with App Router + Turbopack
+- **React 19**
+- **TypeScript 5** (strict)
+- **Tailwind CSS 4** (via postcss, no tailwind.config)
+- **Shadcn/UI** (new-york style, 12 components)
+- **TanStack Query** for data fetching/caching
+- **Zod** for schema validation
+- **Recharts** for charts
+- **Lucide React** for icons
 
-### Error Handling
-- All API responses use `ApiResponse<T>` type
-- Services gracefully degrade when APIs are unavailable
-- UI components handle loading states and errors
+## Import Alias
 
-### Import Alias
-Uses `@/` for `src/` directory imports
+`@/` maps to `src/`
 
-## Recent Development History
+## Test Data
 
-### Homepage Architecture (Phase 11)
-- **Before**: Technical demo with manual connection flow
-- **After**: User-centric tool with automatic Trading212 connection
-- **Key Change**: App automatically connects on load and displays portfolio immediately
-- **Removed**: Marketing welcome sections, manual connection buttons, overwhelming API sections
-
-### API Limits Help System (Phase 10)
-- **Removed**: Comprehensive help/education system per user request
-- **Preserved**: Core API management functionality (tracking, warnings, graceful degradation)
-- **Impact**: Cleaner UI, reduced bundle size, maintained essential features
-
-### Current Focus
-- Portfolio-first experience with automatic connection
-- Single "Enrich Portfolio Data" button for enhanced analysis
-- Clean, production-ready interface without technical noise
+- `trading212-positions.json` - 131 real positions (gitignored)
+- `trading212-account.json` - account summary (gitignored)
