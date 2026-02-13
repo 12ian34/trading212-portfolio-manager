@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "analyze": "ANALYZE=true npm run build",
-    "build:analyze": "ANALYZE=true next build",
-    "build:perf": "NODE_ENV=production next build && next-bundle-analyzer"
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "@next/bundle-analyzer": "^16.1.6",

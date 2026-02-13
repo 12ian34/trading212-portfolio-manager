@@ -43,7 +43,7 @@ Client loads positions first, then triggers enrichment in parallel. TanStack Que
 - **`src/components/region-chart.tsx`** - Donut chart of region allocation derived from T212 ticker suffixes.
 - **`src/components/providers.tsx`** - QueryClientProvider + ThemeProvider wrapper.
 - **`src/components/theme-toggle.tsx`** / **`theme-provider.tsx`** - Dark/light mode toggle.
-- **`src/components/ui/`** - 12 vendored Shadcn/UI components.
+- **`src/components/ui/`** - 8 vendored Shadcn/UI components (alert, badge, button, card, dropdown-menu, input, skeleton, table).
 
 ### Lib
 
@@ -97,11 +97,11 @@ See `.env.example`. Validated by `src/lib/env.ts` using Zod (server-side only).
 
 ## Technical Stack
 
-- **Next.js 15** with App Router + Turbopack
+- **Next.js 16** with App Router + Turbopack
 - **React 19**
 - **TypeScript 5** (strict)
 - **Tailwind CSS 4** (via postcss, no tailwind.config)
-- **Shadcn/UI** (new-york style, 12 components)
+- **Shadcn/UI** (new-york style, 8 components)
 - **TanStack Query** for data fetching/caching
 - **Zod** for schema validation
 - **Recharts** for charts
